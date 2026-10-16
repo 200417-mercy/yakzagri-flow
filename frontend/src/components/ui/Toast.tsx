@@ -48,7 +48,7 @@ export function Toast({
 
   // Base styling for the toast
   const baseClasses =
-    "pointer-events-auto flex w-full max-w-md rounded-lg shadow-card ring-1 ring-black/5 p-4 transition-all duration-300 transform items-start gap-3 relative overflow-hidden backdrop-blur-md";
+    "pointer-events-auto flex w-full max-w-md rounded-lg shadow-elev-1 ring-1 ring-black/5 p-4 transition-all duration-300 transform items-start gap-3 relative overflow-hidden backdrop-blur-md";
 
   // Animation classes
   const animationClasses = isClosing
