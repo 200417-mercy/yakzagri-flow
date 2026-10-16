@@ -65,6 +65,10 @@ const themeScript = `
       dark = pref === 'dark';
     }
     document.documentElement.classList.add(dark ? 'dark' : 'light');
+    var storedLocale = localStorage.getItem('amana-locale');
+    if (storedLocale) {
+      document.documentElement.lang = storedLocale;
+    }
   } catch(e) {
     document.documentElement.classList.add('dark');
   }
@@ -77,7 +81,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en-NG" suppressHydrationWarning>
+    <html lang="en-NG" dir="ltr" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
