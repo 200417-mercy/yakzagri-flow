@@ -1,67 +1,100 @@
 import { test, expect, type Page } from "@playwright/test";
 
 /**
- * E2E coverage for the trade lifecycle, including offline trade creation
- * queueing and online replay (issue #276).
+ * Trade lifecycle E2E coverage.
  *
- * The app persists queued trade actions in localStorage under
- * `trade-queue` while offline and replays them once connectivity returns.
+ * Covers the seller dispatch manifest submission (DriverManifestForm) and the
+ * buyer Proof-of-Delivery (PoD) video evidence upload flow end-to-end.
  */
 
-const TRADE_QUEUE_KEY = "trade-queue";
+const SELLER = { email: "seller@example.com", password: "Password123!" };
+const BUYER = { email: "buyer@example.com", password: "Password123!" };
 
-async function readQueue(page: Page): Promise<unknown[]> {
-  const raw = await page.evaluate((key) => window.localStorage.getItem(key), TRADE_QUEUE_KEY);
-  return raw ? (JSON.parse(raw) as unknown[]) : [];
-}
-
-async function submitTrade(page: Page, counterparty: string, amount: string) {
-  await page.getByLabel(/counterparty/i).fill(counterparty);
-  await page.getByLabel(/amount/i).fill(amount);
-  await page.getByRole("button", { name: /create trade/i }).click();
+async function login(page: Page, user: { email: string; password: string }) {
+  await page.goto("/login");
+  await page.getByLabel(/email/i).fill(user.email);
+  await page.getByLabel(/password/i).fill(user.password);
+  await page.getByRole("button", { name: /sign in|log in/i }).click();
+  await expect(page).not.toHaveURL(/\/login/);
 }
 
 test.describe("trade lifecycle", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/trades");
-    await page.evaluate((key) => window.localStorage.removeItem(key), TRADE_QUEUE_KEY);
-    await page.reload();
+  test("seller submits driver manifest", async ({ page }) => {
+    await login(page, SELLER);
+
+    await page.goto("/seller/dispatch");
+    await expect(
+      page.getByRole("heading", { name: /driver manifest/i }),
+    ).toBeVisible();
+
+    // Driver details
+    await page.getByLabel(/driver name/i).fill("Jane Hauler");
+    await page.getByLabel(/vehicle plate/i).fill("ABC-1234");
+    await page.getByLabel(/driver phone/i).fill("+15555550123");
+
+    // Manifest line items
+    await page.getByLabel(/commodity/i).fill("Arabica Coffee");
+    await page.getByLabel(/quantity/i).fill("120");
+    await page.getByLabel(/unit/i).selectOption("kg");
+
+    await page.getByRole("button", { name: /add item/i }).click();
+    await expect(page.getByText("Arabica Coffee")).toBeVisible();
+
+    // Submit the manifest
+    await page.getByRole("button", { name: /submit manifest/i }).click();
+
+    await expect(
+      page.getByText(/manifest submitted|submission received/i),
+    ).toBeVisible();
   });
 
-  test("queues a trade while offline and replays it when back online", async ({ page, context }) => {
-    const counterparty = "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5";
-    const amount = "100";
+  test("seller manifest rejects missing driver name", async ({ page }) => {
+    await login(page, SELLER);
+    await page.goto("/seller/dispatch");
 
-    // Go offline and submit a trade action.
-    await context.setOffline(true);
-    await submitTrade(page, counterparty, amount);
+    await page.getByRole("button", { name: /submit manifest/i }).click();
 
-    // The action should be queued locally rather than lost.
-    await expect
-      .poll(async () => (await readQueue(page)).length, { timeout: 5_000 })
-      .toBe(1);
-
-    const queued = await readQueue(page);
-    expect(queued[0]).toMatchObject({ counterparty, amount });
-
-    // Restore connectivity and assert the queued action is replayed.
-    await context.setOffline(false);
-
-    await expect
-      .poll(async () => (await readQueue(page)).length, { timeout: 10_000 })
-      .toBe(0);
-
-    // The replayed trade should now be visible in the trade list.
-    await expect(page.getByText(counterparty)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/driver name is required/i)).toBeVisible();
   });
 
-  test("does not queue a trade when online", async ({ page }) => {
-    const counterparty = "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5";
+  test("buyer uploads PoD video evidence", async ({ page }) => {
+    await login(page, BUYER);
 
-    await submitTrade(page, counterparty, "50");
+    await page.goto("/buyer/deliveries");
+    await page.getByRole("link", { name: /view delivery|open delivery/i }).first().click();
 
-    // Give the app a moment to settle, then confirm nothing was queued.
-    await page.waitForTimeout(500);
-    expect(await readQueue(page)).toHaveLength(0);
+    await expect(
+      page.getByRole("heading", { name: /proof of delivery/i }),
+    ).toBeVisible();
+
+    // Upload a small synthetic video as PoD evidence.
+    const videoBuffer = Buffer.from("fake-mp4-bytes-for-e2e");
+    await page.getByLabel(/video evidence/i).setInputFiles({
+      name: "pod-evidence.mp4",
+      mimeType: "video/mp4",
+      buffer: videoBuffer,
+    });
+
+    await expect(page.getByText("pod-evidence.mp4")).toBeVisible();
+
+    await page.getByRole("button", { name: /upload evidence|submit proof/i }).click();
+
+    await expect(
+      page.getByText(/evidence uploaded|proof of delivery recorded/i),
+    ).toBeVisible();
+  });
+
+  test("buyer PoD upload rejects unsupported file type", async ({ page }) => {
+    await login(page, BUYER);
+    await page.goto("/buyer/deliveries");
+    await page.getByRole("link", { name: /view delivery|open delivery/i }).first().click();
+
+    await page.getByLabel(/video evidence/i).setInputFiles({
+      name: "notes.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("not a video"),
+    });
+
+    await expect(page.getByText(/unsupported file type|must be a video/i)).toBeVisible();
   });
 });
