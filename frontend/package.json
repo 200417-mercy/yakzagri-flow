@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "tokens:build": "node scripts/generate-design-tokens.mjs",
     "tokens:check": "node scripts/generate-design-tokens.mjs --check",
     "test": "jest --config jest.config.ts",
