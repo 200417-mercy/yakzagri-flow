@@ -102,3 +102,6 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 <!-- handsoff-issue-95 -->
 - #95: [docs] Fix README duplicated CI section and stray text
+
+<!-- handsoff-issue-282 -->
+- #282: [testing] Add unit tests for route error boundaries (app/error.tsx, trades/error.tsx, dashboard/error.tsx)
