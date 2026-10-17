@@ -5,6 +5,11 @@ import { getApiBaseUrl, getStellarRpcUrl } from "@/lib/api/env";
 /**
  * Origins allowed to be embedded as frames and connected to (wallet providers).
  * Drives both `connect-src` and `frame-src` below.
+ *
+ * Wallet-frame exemption process: third-party wallet UIs that must be
+ * embedded in an iframe (e.g. a hosted signing widget) should be added to
+ * this allowlist rather than relaxing the policy ad-hoc. Requires security
+ * sign-off before merging an addition. See frontend/docs/security.md.
  */
 const WALLET_FRAME_ALLOWLIST = [
   "https://walletconnect.com",
@@ -30,11 +35,11 @@ const CSP_HEADER = "Content-Security-Policy";
 /**
  * Build the Content-Security-Policy for a given request.
  *
- * Wallet-frame exemption process: third-party wallet UIs that must be
- * embedded in an iframe (e.g. a hosted signing widget) should be added to
- * the `frame-src` allowlist below via WALLET_FRAME_ALLOWLIST (comma
- * separated origins) rather than relaxing the policy ad-hoc. Requires
- * security sign-off before merging an addition.
+ * Per-request nonce strategy: `middleware` generates a fresh nonce for every
+ * request and passes it to `buildCsp`, which emits it in `script-src` as
+ * `'nonce-<value>'` alongside `'strict-dynamic'`. The same nonce is exposed to
+ * the app via the `x-nonce` request/response header so server components can
+ * attach it to inline scripts. See frontend/docs/security.md.
  *
  * PoD video (issue #127): the in-browser recorder captures via
  * getUserMedia/MediaRecorder and plays back the recorded clip from a
@@ -42,12 +47,6 @@ const CSP_HEADER = "Content-Security-Policy";
  * for any same-origin media), and the Permissions-Policy below grants
  * `camera`/`microphone` to same-origin so the recorder can request them.
  */
-function buildCsp(nonce: string): string {
-  const directives: Record<string, string[]> = {
-    "default-src": ["'self'"],
-    "script-src": ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'", "https:"],
-    "style-src": ["'self'", "'unsafe-inline'"],
-
 export function buildCsp(nonce: string): string {
   const directives: Record<string, string> = {
     "default-src": "'self'",
@@ -58,16 +57,16 @@ export function buildCsp(nonce: string): string {
     "font-src": "'self' data:",
     "connect-src": buildConnectSrc(),
     "frame-src": buildFrameSrc(),
-    "object-src": ["'none'"],
-    "base-uri": ["'self'"],
-    "form-action": ["'self'"],
-    "frame-ancestors": ["'none'"],
-    "upgrade-insecure-requests": [],
-    "report-uri": ["/api/csp-report"],
+    "object-src": "'none'",
+    "base-uri": "'self'",
+    "form-action": "'self'",
+    "frame-ancestors": "'none'",
+    "upgrade-insecure-requests": "",
+    "report-uri": "/api/csp-report",
   };
 
   return Object.entries(directives)
-    .map(([name, values]) => (values.length ? `${name} ${values.join(" ")}` : name))
+    .map(([name, values]) => (values.length ? `${name} ${values}` : name))
     .join("; ");
 }
 
@@ -120,7 +119,7 @@ export function middleware(request: NextRequest) {
     request: { headers: requestHeaders },
   });
 
-  response.headers.set(CSP_HEADER, csp);
+  response.headers.set(headerName, csp);
   response.headers.set("x-nonce", nonce);
 
   // Defense-in-depth headers that pair naturally with the CSP rollout.
