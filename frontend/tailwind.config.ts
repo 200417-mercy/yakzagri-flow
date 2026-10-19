@@ -98,12 +98,35 @@ const config: Config = {
         hover: "var(--border-hover)",
         focus: "var(--border-focus)",
       },
+      ringColor: {
+        DEFAULT: "var(--border-focus)",
+        focus: "var(--border-focus)",
+        "focus-high-contrast": "var(--gold)",
+        "focus-danger": "var(--status-danger)",
+        "focus-emerald": "var(--emerald)",
+      },
+      ringOffsetColor: {
+        DEFAULT: "var(--surface-0)",
+        surface: "var(--surface-1)",
+        elevated: "var(--surface-2)",
+      },
+      ringWidth: {
+        DEFAULT: "2px",
+        focus: "2px",
+        "focus-hc": "3px",
+      },
+      ringOffsetWidth: {
+        DEFAULT: "2px",
+        focus: "2px",
+      },
       // ── Elevation / shadow scale ─────────────────────────────────────────
       boxShadow: {
         "elev-0": "none",
         "elev-1": "var(--shadow-elev-1)",
         "elev-2": "var(--shadow-elev-2)",
         "elev-3": "var(--shadow-elev-3)",
+        "focus-ring": "0 0 0 2px var(--surface-0), 0 0 0 4px var(--border-focus)",
+        "focus-ring-hc": "0 0 0 2px var(--surface-0), 0 0 0 5px var(--gold)",
         // Legacy aliases
         card: "var(--shadow-elev-1)",
         "card-hover": "var(--shadow-elev-2)",
