@@ -47,3 +47,74 @@ export function resolveLocale(explicit?: Locale): Locale {
 export function intlLocale(locale: Locale): string {
   return locale === "pseudo" ? DEFAULT_LOCALE : locale;
 }
+
+/**
+ * Ambiguous currency symbols that require explicit ISO 4217 currency code
+ * disambiguation (e.g., "$" can mean USD, CAD, AUD; "₦" vs NGN in mixed-locale text).
+ */
+export const AMBIGUOUS_CURRENCY_SYMBOLS: Readonly<Record<string, readonly string[]>> = {
+  $: ["USD", "CAD", "AUD", "NZD"],
+  "£": ["GBP", "EGP"],
+  "¥": ["JPY", "CNY"],
+};
+
+export interface LocaleInputDiagnostic {
+  isSupportedLocale: boolean;
+  resolvedLocale: Locale;
+  hasAmbiguousSymbol: boolean;
+  ambiguousSymbols: string[];
+  hasMixedSeparators: boolean;
+  clarificationMessage?: string;
+}
+
+/**
+ * Clarifies mixed-locale number separators, ambiguous currency symbols, and
+ * unsupported language tags before canonical parsing or contract unit conversion.
+ */
+export function clarifyLocaleAndCurrencyInput(
+  rawInput: string,
+  requestedLocale?: string,
+): LocaleInputDiagnostic {
+  const isSupportedLocale =
+    !requestedLocale || (SUPPORTED_LOCALES as readonly string[]).includes(requestedLocale);
+  const resolved = isSupportedLocale && requestedLocale
+    ? (requestedLocale as Locale)
+    : DEFAULT_LOCALE;
+
+  const ambiguousSymbols = Object.keys(AMBIGUOUS_CURRENCY_SYMBOLS).filter((sym) =>
+    rawInput.includes(sym),
+  );
+  const hasAmbiguousSymbol = ambiguousSymbols.length > 0;
+
+  // Detect mixed grouping/decimal conventions such as multiple decimal points or interleaved separators
+  const dotCount = (rawInput.match(/\./g) ?? []).length;
+  const commaCount = (rawInput.match(/,/g) ?? []).length;
+  const hasMixedSeparators = (dotCount > 1 && commaCount >= 1) || (dotCount > 0 && commaCount > 0 && rawInput.indexOf(".") < rawInput.indexOf(","));
+
+  const reasons: string[] = [];
+  if (!isSupportedLocale && requestedLocale) {
+    reasons.push(
+      `Unsupported locale "${requestedLocale}"; falling back to ${DEFAULT_LOCALE}.`,
+    );
+  }
+  if (hasAmbiguousSymbol) {
+    reasons.push(
+      `Ambiguous currency symbol (${ambiguousSymbols.join(", ")}); specify an explicit ISO code such as USDC or NGN.`,
+    );
+  }
+  if (hasMixedSeparators) {
+    reasons.push(
+      "Mixed locale separators detected; use period (.) as the decimal separator and comma (,) for thousands.",
+    );
+  }
+
+  return {
+    isSupportedLocale,
+    resolvedLocale: resolved,
+    hasAmbiguousSymbol,
+    ambiguousSymbols,
+    hasMixedSeparators,
+    clarificationMessage: reasons.length > 0 ? reasons.join(" ") : undefined,
+  };
+}
+
