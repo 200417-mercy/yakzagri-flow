@@ -47,3 +47,93 @@ export function resolveLocale(explicit?: Locale): Locale {
 export function intlLocale(locale: Locale): string {
   return locale === "pseudo" ? DEFAULT_LOCALE : locale;
 }
+
+export interface LocaleFormattingExample {
+  locale: Locale;
+  label: string;
+  groupSeparator: string;
+  decimalSeparator: string;
+  defaultCurrency: string;
+  representativeAmount: string;
+  currencyExample: string;
+  ambiguityExamples: readonly string[];
+}
+
+/**
+ * Supported locale specifications and representative amount, separator,
+ * currency, and ambiguity examples for canonical money parsing and display.
+ */
+export const SUPPORTED_LOCALE_SPECS: Record<Locale, LocaleFormattingExample> = {
+  "en-NG": {
+    locale: "en-NG",
+    label: "English (Nigeria)",
+    groupSeparator: ",",
+    decimalSeparator: ".",
+    defaultCurrency: "NGN",
+    representativeAmount: "1,250,000.50",
+    currencyExample: "₦1,250,000.50",
+    ambiguityExamples: [
+      "1,250 (three digits after comma: group separator vs decimal)",
+      "N1,250 (ambiguous 'N' prefix vs ₦ / NGN / cNGN)",
+    ],
+  },
+  "en-US": {
+    locale: "en-US",
+    label: "English (United States)",
+    groupSeparator: ",",
+    decimalSeparator: ".",
+    defaultCurrency: "USD",
+    representativeAmount: "1,250,000.50",
+    currencyExample: "$1,250,000.50",
+    ambiguityExamples: [
+      "$1,250 (ambiguous '$' symbol across USD, CAD, AUD)",
+      "1,250.00 vs 1.250,00 mixed-locale input",
+    ],
+  },
+  "ha-NG": {
+    locale: "ha-NG",
+    label: "Hausa (Nigeria)",
+    groupSeparator: ",",
+    decimalSeparator: ".",
+    defaultCurrency: "NGN",
+    representativeAmount: "1,250,000.50",
+    currencyExample: "₦1,250,000.50",
+    ambiguityExamples: [
+      "Naira 1,250 vs cNGN 1,250 (fiat NGN vs on-chain cNGN)",
+    ],
+  },
+  "yo-NG": {
+    locale: "yo-NG",
+    label: "Yoruba (Nigeria)",
+    groupSeparator: ",",
+    decimalSeparator: ".",
+    defaultCurrency: "NGN",
+    representativeAmount: "1,250,000.50",
+    currencyExample: "₦1,250,000.50",
+    ambiguityExamples: [
+      "₦1,250 vs 1,250 cNGN (symbol-prefixed fiat vs token code)",
+    ],
+  },
+  "ig-NG": {
+    locale: "ig-NG",
+    label: "Igbo (Nigeria)",
+    groupSeparator: ",",
+    decimalSeparator: ".",
+    defaultCurrency: "NGN",
+    representativeAmount: "1,250,000.50",
+    currencyExample: "₦1,250,000.50",
+    ambiguityExamples: [
+      "1,250,000 vs 1.250.000 (period vs comma thousands grouping)",
+    ],
+  },
+  pseudo: {
+    locale: "pseudo",
+    label: "Pseudo-Locale (QA)",
+    groupSeparator: ",",
+    decimalSeparator: ".",
+    defaultCurrency: "NGN",
+    representativeAmount: "1,250,000.50",
+    currencyExample: "₦1,250,000.50",
+    ambiguityExamples: ["[⟦₦1,250.00⟧] pseudo-wrapped test string"],
+  },
+};
