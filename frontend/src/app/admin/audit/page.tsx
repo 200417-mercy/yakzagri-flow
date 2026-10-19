@@ -94,7 +94,13 @@ export default function AdminAuditHistoryPage() {
 
   if (loading) {
     return (
-      <div className="px-6 py-8 max-w-6xl mx-auto" data-testid="admin-audit-page">
+      <div
+        className="px-6 py-8 max-w-6xl mx-auto"
+        data-testid="admin-audit-page"
+        role="status"
+        aria-busy="true"
+        aria-label="Loading admin action history table"
+      >
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-3xl font-bold text-text-primary">{translateCopy("ui.admin_action_history_ca3d545")}</h2>
         </div>

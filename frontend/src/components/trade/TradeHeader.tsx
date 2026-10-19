@@ -24,13 +24,21 @@ export function TradeHeader({ trade, onConfirmDelivery, confirmingDelivery = fal
           {translateCopy("ui.trades_597b109")}
         </span>
         <span>/</span>
-        <span className="text-text-secondary">{trade.id}</span>
+        <span
+          className="text-text-secondary max-w-[200px] truncate inline-block align-bottom"
+          title={trade.id}
+        >
+          {trade.id}
+        </span>
       </div>
 
       {/* Title row */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gold leading-tight">
+        <div className="min-w-0 flex-1">
+          <h1
+            className="text-3xl font-bold text-gold leading-tight truncate"
+            title={`${trade.quantity} ${trade.commodity}`}
+          >
             {trade.quantity} {trade.commodity}
           </h1>
           <div className="flex flex-wrap items-center gap-3 mt-3">
