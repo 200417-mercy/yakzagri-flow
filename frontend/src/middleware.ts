@@ -42,20 +42,14 @@ const CSP_HEADER = "Content-Security-Policy";
  * for any same-origin media), and the Permissions-Policy below grants
  * `camera`/`microphone` to same-origin so the recorder can request them.
  */
-function buildCsp(nonce: string): string {
+export function buildCsp(nonce: string): string {
   const directives: Record<string, string[]> = {
     "default-src": ["'self'"],
     "script-src": ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'", "https:"],
     "style-src": ["'self'", "'unsafe-inline'"],
-
-export function buildCsp(nonce: string): string {
-  const directives: Record<string, string> = {
-    "default-src": "'self'",
-    "script-src": `'self' 'nonce-${nonce}' 'strict-dynamic' https:`,
-    "style-src": "'self' 'unsafe-inline'",
-    "img-src": "'self' data: blob: https:",
-    "media-src": "'self' blob:",
-    "font-src": "'self' data:",
+    "img-src": ["'self'", "data:", "blob:", "https:"],
+    "media-src": ["'self'", "blob:"],
+    "font-src": ["'self'", "data:"],
     "connect-src": buildConnectSrc(),
     "frame-src": buildFrameSrc(),
     "object-src": ["'none'"],

@@ -47,3 +47,15 @@ export function resolveLocale(explicit?: Locale): Locale {
 export function intlLocale(locale: Locale): string {
   return locale === "pseudo" ? DEFAULT_LOCALE : locale;
 }
+
+const RTL_LOCALE_PREFIXES = ["ar", "he", "fa", "ur"];
+
+/** Resolve text direction ("ltr" | "rtl") for a given locale. */
+export function localeDir(locale: Locale | string): "ltr" | "rtl" {
+  const normalized = String(locale).toLowerCase();
+  return RTL_LOCALE_PREFIXES.some(
+    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}-`),
+  )
+    ? "rtl"
+    : "ltr";
+}
