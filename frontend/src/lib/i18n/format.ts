@@ -142,3 +142,40 @@ export function formatRelativeTime(
   }
   return rtf.format(Math.round(duration), "years");
 }
+
+/**
+ * Stage 1 (Canonical Parsing): Parse user/locale numeric text into a canonical
+ * decimal string ("1234.56"), strictly separated from language interpretation
+ * and on-chain contract unit conversion.
+ */
+export function parseCanonicalDecimalAmount(rawInput: string | number): string {
+  const cleaned = String(rawInput)
+    .trim()
+    .replace(/[₦$,\s_]/g, "")
+    .replace(/cNGN|NGN|USDC|USD/gi, "")
+    .trim();
+  if (!/^\d+(\.\d+)?$/.test(cleaned)) {
+    throw new RangeError(`Invalid canonical decimal amount: ${String(rawInput)}`);
+  }
+  return cleaned;
+}
+
+/**
+ * Stage 2 (Contract Unit Conversion): Convert a canonical decimal string into
+ * integer contract base units (e.g. 7-decimal Stellar stroops) using exact
+ * string/BigInt arithmetic without floating-point drift.
+ */
+export function convertCanonicalToContractUnits(
+  canonicalAmount: string,
+  decimals: number = 7,
+): bigint {
+  const normalized = parseCanonicalDecimalAmount(canonicalAmount);
+  const [wholePart, fracPart = ""] = normalized.split(".");
+  if (fracPart.length > decimals) {
+    throw new RangeError(
+      `Fractional precision (${fracPart.length}) exceeds contract decimals (${decimals})`,
+    );
+  }
+  const paddedFraction = fracPart.padEnd(decimals, "0");
+  return BigInt(`${wholePart}${paddedFraction}`);
+}
