@@ -35,14 +35,45 @@ const DEFAULT_STATUS: StatusConfig = {
   badge: "bg-surface-2 text-text-secondary border border-border-default",
 };
 
+export const STATUS_CONTRAST_TOKENS = {
+  success: {
+    light: "bg-status-success/15 text-status-success border-status-success/35",
+    dark: "dark:bg-status-success/20 dark:text-status-success dark:border-status-success/40",
+  },
+  warning: {
+    light: "bg-status-warning/15 text-status-warning border-status-warning/35",
+    dark: "dark:bg-status-warning/20 dark:text-status-warning dark:border-status-warning/40",
+  },
+  danger: {
+    light: "bg-status-danger/15 text-status-danger border-status-danger/35",
+    dark: "dark:bg-status-danger/20 dark:text-status-danger dark:border-status-danger/40",
+  },
+  info: {
+    light: "bg-status-info/15 text-status-info border-status-info/35",
+    dark: "dark:bg-status-info/20 dark:text-status-info dark:border-status-info/40",
+  },
+  locked: {
+    light: "bg-status-locked/15 text-status-locked border-status-locked/35",
+    dark: "dark:bg-status-locked/20 dark:text-status-locked dark:border-status-locked/40",
+  },
+  draft: {
+    light: "bg-status-draft/15 text-status-draft border-status-draft/35",
+    dark: "dark:bg-status-draft/20 dark:text-status-draft dark:border-status-draft/40",
+  },
+  neutral: {
+    light: "bg-surface-2 text-text-secondary border border-border-default",
+    dark: "dark:bg-surface-2 dark:text-text-primary dark:border-border-hover",
+  },
+} as const;
+
 const STATUS_TONES = {
-  success: "bg-status-success/10 text-status-success border-status-success/25",
-  warning: "bg-status-warning/10 text-status-warning border-status-warning/25",
-  danger: "bg-status-danger/10 text-status-danger border-status-danger/25",
-  info: "bg-status-info/10 text-status-info border-status-info/25",
-  locked: "bg-status-locked/10 text-status-locked border-status-locked/25",
-  draft: "bg-status-draft/10 text-status-draft border-status-draft/25",
-  neutral: "bg-surface-2 text-text-secondary border border-border-default",
+  success: `bg-status-success/10 text-status-success border-status-success/25 ${STATUS_CONTRAST_TOKENS.success.dark}`,
+  warning: `bg-status-warning/10 text-status-warning border-status-warning/25 ${STATUS_CONTRAST_TOKENS.warning.dark}`,
+  danger: `bg-status-danger/10 text-status-danger border-status-danger/25 ${STATUS_CONTRAST_TOKENS.danger.dark}`,
+  info: `bg-status-info/10 text-status-info border-status-info/25 ${STATUS_CONTRAST_TOKENS.info.dark}`,
+  locked: `bg-status-locked/10 text-status-locked border-status-locked/25 ${STATUS_CONTRAST_TOKENS.locked.dark}`,
+  draft: `bg-status-draft/10 text-status-draft border-status-draft/25 ${STATUS_CONTRAST_TOKENS.draft.dark}`,
+  neutral: `bg-surface-2 text-text-secondary border border-border-default ${STATUS_CONTRAST_TOKENS.neutral.dark}`,
 } as const;
 
 const STATUS_ALIASES: Record<string, keyof typeof STATUS_TONES> = {
