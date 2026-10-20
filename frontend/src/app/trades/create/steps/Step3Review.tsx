@@ -72,89 +72,52 @@ export function Step3Review() {
   };
 
   const handleSubmit = async () => {
-    // Action de-duplication window preventing double-submit (rapid triple-click yields single intent)
-    const dedupKey = `create-trade:${data.sellerAddress}:${amountUsdc}:${buyerLossBps}`;
-    const dedup = shouldDedup(dedupKey);
-    if (dedup.dedup || submittingRef.current) return;
-    if (!isAuthenticated || !token) {
-      setError("Please connect and authenticate your wallet first.");
-      return;
-    }
-
-    if (!isFormValid) {
-      setError("Please complete all required fields with valid values before submitting.");
-      return;
-    }
-
-    // Validate against the shared domain schema — same rules the backend
-    // enforces — so we never fire a request the server will reject with a 400.
-    const payload = {
-      sellerAddress: data.sellerAddress.trim(),
-      amountUsdc,
-      buyerLossBps,
-      sellerLossBps,
-    };
-    const parsed = createTradeInputSchema.safeParse(payload);
-    if (!parsed.success) {
-      const errs = fieldErrors(parsed.error);
-      setError(errs._form ?? Object.values(errs)[0] ?? "Trade details are invalid.");
-      return;
-    }
-
-    const requestPayload = {
-      sellerAddress: parsed.data.sellerAddress,
-      amountUsdc: parsed.data.amountUsdc,
-      buyerLossBps,
-      sellerLossBps,
-    };
-
-    const correlationId = generateCorrelationId();
-    const idempotencyKey = getOrCreateIdempotencyKey(address, dedupKey);
-    registerAction(dedupKey, correlationId, idempotencyKey);
-
-    // Offline queue: queue idempotent action locally while offline (draft trades survive refresh)
-    if (isOffline) {
-      enqueue({
-        type: "create-trade",
-        endpoint: "/trades",
-        method: "POST",
-        body: requestPayload,
-        idempotencyKey,
-        correlationId,
-      });
-      // Pending-state UX showing what will send
-      addToastWithCorrelation({
-        type: "info",
-        title: "Queued offline",
-        message: `Draft trade (${data.commodity} ${amountUsdc} cNGN) will send when reconnected.`,
-        correlationId,
-        duration: 6000,
-      });
-      // Keep draft in localStorage (TradeContext) — survives refresh/restart via TradeContext persistence
-      setError(null);
-      return;
-    }
-
+    if (submittingRef.current) return;
     submittingRef.current = true;
-    setLoading(true);
-    setError(null);
-    // Unified toast contract: pending w/ correlation ID
-    addToastWithCorrelation({ type: "info", title: "In progress", message: "Locking funds…", correlationId, duration: 0 });
 
     try {
-      const submission = await submitTradeCreation(token, requestPayload, {
-        idempotencyKey,
-        correlationId,
-      });
+      // Action de-duplication window preventing double-submit (rapid triple-click yields single intent)
+      const dedupKey = `create-trade:${data.sellerAddress}:${amountUsdc}:${buyerLossBps}`;
+      const dedup = shouldDedup(dedupKey);
+      if (dedup.dedup) return;
+      if (!isAuthenticated || !token) {
+        setError("Please connect and authenticate your wallet first.");
+        return;
+      }
 
-      clearIdempotencyKey(address, dedupKey);
-      setTradeId(submission.tradeId);
-      setTxHash(submission.transactionHash);
-      updateToast(correlationId, { type: "success", title: "Success", message: "Trade created — funds locked.", duration: 5000 });
-      // Clear draft on success
-      try { localStorage.removeItem("amana:draft-trade"); } catch {}
-    } catch (err) {
-      if (!navigator.onLine) {
+      if (!isFormValid) {
+        setError("Please complete all required fields with valid values before submitting.");
+        return;
+      }
+
+      // Validate against the shared domain schema — same rules the backend
+      // enforces — so we never fire a request the server will reject with a 400.
+      const payload = {
+        sellerAddress: data.sellerAddress.trim(),
+        amountUsdc,
+        buyerLossBps,
+        sellerLossBps,
+      };
+      const parsed = createTradeInputSchema.safeParse(payload);
+      if (!parsed.success) {
+        const errs = fieldErrors(parsed.error);
+        setError(errs._form ?? Object.values(errs)[0] ?? "Trade details are invalid.");
+        return;
+      }
+
+      const requestPayload = {
+        sellerAddress: parsed.data.sellerAddress,
+        amountUsdc: parsed.data.amountUsdc,
+        buyerLossBps,
+        sellerLossBps,
+      };
+
+      const correlationId = generateCorrelationId();
+      const idempotencyKey = getOrCreateIdempotencyKey(address, dedupKey);
+      registerAction(dedupKey, correlationId, idempotencyKey);
+
+      // Offline queue: queue idempotent action locally while offline (draft trades survive refresh)
+      if (isOffline) {
         enqueue({
           type: "create-trade",
           endpoint: "/trades",
@@ -163,13 +126,55 @@ export function Step3Review() {
           idempotencyKey,
           correlationId,
         });
-        router.push('/trades/queue');
+        // Pending-state UX showing what will send
+        addToastWithCorrelation({
+          type: "info",
+          title: "Queued offline",
+          message: `Draft trade (${data.commodity} ${amountUsdc} cNGN) will send when reconnected.`,
+          correlationId,
+          duration: 6000,
+        });
+        // Keep draft in localStorage (TradeContext) — survives refresh/restart via TradeContext persistence
+        setError(null);
         return;
       }
-      setError(err instanceof Error ? err.message : 'Failed to submit trade');
+
+      setLoading(true);
+      setError(null);
+      // Unified toast contract: pending w/ correlation ID
+      addToastWithCorrelation({ type: "info", title: "In progress", message: "Locking funds…", correlationId, duration: 0 });
+
+      try {
+        const submission = await submitTradeCreation(token, requestPayload, {
+          idempotencyKey,
+          correlationId,
+        });
+
+        clearIdempotencyKey(address, dedupKey);
+        setTradeId(submission.tradeId);
+        setTxHash(submission.transactionHash);
+        updateToast(correlationId, { type: "success", title: "Success", message: "Trade created — funds locked.", duration: 5000 });
+        // Clear draft on success
+        try { localStorage.removeItem("amana:draft-trade"); } catch {}
+      } catch (err) {
+        if (!navigator.onLine) {
+          enqueue({
+            type: "create-trade",
+            endpoint: "/trades",
+            method: "POST",
+            body: requestPayload,
+            idempotencyKey,
+            correlationId,
+          });
+          router.push('/trades/queue');
+          return;
+        }
+        setError(err instanceof Error ? err.message : 'Failed to submit trade');
+      } finally {
+        setLoading(false);
+      }
     } finally {
       submittingRef.current = false;
-      setLoading(false);
     }
   };
 
