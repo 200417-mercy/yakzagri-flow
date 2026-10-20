@@ -102,6 +102,9 @@ const config: Config = {
         "elev-1": "var(--shadow-elev-1)",
         "elev-2": "var(--shadow-elev-2)",
         "elev-3": "var(--shadow-elev-3)",
+        // Legacy aliases
+        card: "var(--shadow-elev-1)",
+        "card-hover": "var(--shadow-elev-2)",
         "glow-gold": "var(--amana-shadow-glow-gold)",
         "glow-emerald": "var(--amana-shadow-glow-emerald)",
         modal: "var(--shadow-elev-3)",
