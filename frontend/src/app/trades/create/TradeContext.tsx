@@ -9,6 +9,7 @@ export type TradeData = {
   pricePerUnit: string;
   currency: string;
   sellerAddress: string;
+  deliveryWindow: string;
   // Step 2
   buyerRatio: number;
   sellerRatio: number;
@@ -30,6 +31,7 @@ const defaults: TradeData = {
   pricePerUnit: "",
   currency: "NGN",
   sellerAddress: "",
+  deliveryWindow: "",
   buyerRatio: 50,
   sellerRatio: 50,
   deliveryDays: "7",

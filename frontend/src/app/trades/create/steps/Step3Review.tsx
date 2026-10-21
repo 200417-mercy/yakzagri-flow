@@ -4,7 +4,7 @@ import { t as translateCopy } from "@/lib/i18n";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTrade } from "../TradeContext";
-import { isSelfEscrowAddress, isValidStellarAddress } from "../validation";
+import { isSelfEscrowAddress, isValidStellarAddress, formatDeliveryWindowSummary } from "../validation";
 import { useAuth } from "@/hooks/useAuth";
 import { submitTradeCreation } from "@/lib/trades/submitTradeCreation";
 import { createTradeInputSchema, fieldErrors } from "@/lib/domain-schemas/trade";
@@ -294,6 +294,10 @@ export function Step3Review() {
         <ReviewRow label="Seller Address" value={data.sellerAddress} />
         <ReviewRow label="Loss Ratio" value={`Buyer ${data.buyerRatio}% / Seller ${data.sellerRatio}%`} />
         <ReviewRow label="Delivery Window" value={`${data.deliveryDays} days`} />
+        <ReviewRow
+          label="Delivery Deadline"
+          value={formatDeliveryWindowSummary(data.deliveryDeadline)}
+        />
         {data.notes && <ReviewRow label="Notes" value={data.notes} />}
       </div>
 

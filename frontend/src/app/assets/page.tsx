@@ -11,6 +11,7 @@ import { api, type TradeStatsResponse, type TradeResponse } from "@/lib/api";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatNumber } from "@/lib/i18n/format";
 import { Button } from "@/components/ui/Button";
+import { exportTrades, type TradeExportFormat } from "@/lib/exportTrades";
 import {
   TrendingUp,
   Activity,
@@ -583,6 +584,13 @@ export default function AssetsPage() {
   const totalPages = Math.max(1, Math.ceil(filteredTrades.length / PAGE_SIZE));
   const pagedTrades = filteredTrades.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const handleExport = useCallback(
+    (format: TradeExportFormat) => {
+      exportTrades(filteredTrades, format, "assets");
+    },
+    [filteredTrades],
+  );
+
   // Derived summary values
   const totalVolume = stats?.totalVolume ?? 0;
   const openTrades  = stats?.openTrades  ?? 0;
@@ -608,9 +616,31 @@ export default function AssetsPage() {
             <p className="text-xs text-text-muted">{translateCopy("ui.your_cngn_backed_trade_positions_71149a7")}</p>
           </div>
           {isAuthenticated && (
-            <Link href="/trades/create">
-              <Button variant="primary" className="text-xs">{translateCopy("ui.new_asset_23ebdb4")}</Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                className="text-xs"
+                onClick={() => handleExport("csv")}
+                disabled={loading || filteredTrades.length === 0}
+                aria-label={translateCopy("ui.export_assets_csv_2f4b1a7")}
+              >
+                {translateCopy("ui.export_csv_5c1d9e2")}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="text-xs"
+                onClick={() => handleExport("json")}
+                disabled={loading || filteredTrades.length === 0}
+                aria-label={translateCopy("ui.export_assets_json_8a3c6d1")}
+              >
+                {translateCopy("ui.export_json_7b2e4f0")}
+              </Button>
+              <Link href="/trades/create">
+                <Button variant="primary" className="text-xs">{translateCopy("ui.new_asset_23ebdb4")}</Button>
+              </Link>
+            </div>
           )}
         </div>
 
