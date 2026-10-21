@@ -42,20 +42,14 @@ const CSP_HEADER = "Content-Security-Policy";
  * for any same-origin media), and the Permissions-Policy below grants
  * `camera`/`microphone` to same-origin so the recorder can request them.
  */
-function buildCsp(nonce: string): string {
+export function buildCsp(nonce: string): string {
   const directives: Record<string, string[]> = {
     "default-src": ["'self'"],
     "script-src": ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'", "https:"],
     "style-src": ["'self'", "'unsafe-inline'"],
-
-export function buildCsp(nonce: string): string {
-  const directives: Record<string, string> = {
-    "default-src": "'self'",
-    "script-src": `'self' 'nonce-${nonce}' 'strict-dynamic' https:`,
-    "style-src": "'self' 'unsafe-inline'",
-    "img-src": "'self' data: blob: https:",
-    "media-src": "'self' blob:",
-    "font-src": "'self' data:",
+    "img-src": ["'self'", "data:", "blob:", "https:"],
+    "media-src": ["'self'", "blob:"],
+    "font-src": ["'self'", "data:"],
     "connect-src": buildConnectSrc(),
     "frame-src": buildFrameSrc(),
     "object-src": ["'none'"],
@@ -71,7 +65,7 @@ export function buildCsp(nonce: string): string {
     .join("; ");
 }
 
-function buildConnectSrc(): string[] {
+export function buildConnectSrc(): string[] {
   const sources = new Set([
     "'self'",
     ...WALLET_FRAME_ALLOWLIST,
@@ -97,7 +91,7 @@ function buildConnectSrc(): string[] {
   return Array.from(sources);
 }
 
-function buildFrameSrc(): string[] {
+export function buildFrameSrc(): string[] {
   const configuredOrigins = (process.env.WALLET_FRAME_ALLOWLIST ?? "")
     .split(",")
     .map((origin) => origin.trim())
@@ -110,7 +104,7 @@ export function middleware(request: NextRequest) {
   const csp = buildCsp(nonce);
   const enforce = process.env.CSP_ENFORCE === "true";
   const headerName = enforce
-    ? "Content-Security-Policy"
+    ? CSP_HEADER
     : "Content-Security-Policy-Report-Only";
 
   const requestHeaders = new Headers(request.headers);
@@ -120,7 +114,7 @@ export function middleware(request: NextRequest) {
     request: { headers: requestHeaders },
   });
 
-  response.headers.set(CSP_HEADER, csp);
+  response.headers.set(headerName, csp);
   response.headers.set("x-nonce", nonce);
 
   // Defense-in-depth headers that pair naturally with the CSP rollout.
