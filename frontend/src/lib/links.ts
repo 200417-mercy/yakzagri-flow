@@ -57,6 +57,34 @@ export function webUrlForTrade(tradeId: string): string {
   return `${WEB_ORIGIN}/trades/${encodeURIComponent(tradeId)}`;
 }
 
+/** Stellar network the frontend is configured against. */
+export type StellarNetwork = "testnet" | "mainnet";
+
+const STELLAR_EXPLORER_BASE: Record<StellarNetwork, string> = {
+  testnet: "https://stellar.expert/explorer/testnet",
+  mainnet: "https://stellar.expert/explorer/public",
+};
+
+/**
+ * Resolve the active Stellar network from the public env var
+ * (`NEXT_PUBLIC_STELLAR_NETWORK`), defaulting to testnet.
+ */
+export function stellarNetwork(): StellarNetwork {
+  const raw = (process.env.NEXT_PUBLIC_STELLAR_NETWORK ?? "").trim().toLowerCase();
+  return raw === "mainnet" || raw === "public" ? "mainnet" : "testnet";
+}
+
+/**
+ * Explorer URL for a Stellar transaction hash, so the trade detail page can
+ * render a clickable link once a Soroban transaction is confirmed.
+ */
+export function stellarExplorerTxUrl(
+  hash: string,
+  network: StellarNetwork = stellarNetwork(),
+): string {
+  return `${STELLAR_EXPLORER_BASE[network]}/tx/${encodeURIComponent(hash)}`;
+}
+
 /** Deep (custom-scheme) URL for the current web path, or null if not mappable. */
 export function appUrlForPath(pathname: string): string | null {
   for (const route of ROUTES) {

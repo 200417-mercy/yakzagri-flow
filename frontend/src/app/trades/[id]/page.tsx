@@ -15,6 +15,8 @@ import { getMediatorAddresses, isMediatorAddress } from "@/app/mediator/disputes
 import { formatDateTime } from "@/lib/i18n/format";
 import { getOrCreateIdempotencyKey, clearIdempotencyKey } from "@/lib/idempotency";
 import { broadcastTransaction } from "@/lib/stellar/broadcast";
+import { pollTransaction } from "@/lib/stellar/pollTransaction";
+import { getTxExplorerUrl } from "@/lib/links";
 import {
   Modal,
   ModalContent,
@@ -86,6 +88,11 @@ export default function TradeDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [actionProgress, setActionProgress] = useState<string | null>(null);
+  const [confirmedTx, setConfirmedTx] = useState<{
+    hash: string;
+    ledger: number | null;
+  } | null>(null);
   const [disputeOpen, setDisputeOpen] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
   const [disputeCategory, setDisputeCategory] = useState<DisputeCategory>("delivery");
@@ -107,6 +114,8 @@ export default function TradeDetailPage() {
     setActionLoading(true);
     setActionError(null);
     setActionSuccess(null);
+    setActionProgress(null);
+    setConfirmedTx(null);
 
     const scopeKey = `${action}:${tradeId}`;
     const idempotencyKey = getOrCreateIdempotencyKey(address, scopeKey);
@@ -136,11 +145,37 @@ export default function TradeDetailPage() {
       const { hash: txHash } = await broadcastTransaction(signedTxXdr);
 
       if (scopeKey) clearIdempotencyKey(address, scopeKey);
-      setActionSuccess(
-        txHash
-          ? `${label} completed successfully. Transaction: ${txHash}`
-          : `${label} completed successfully.`,
-      );
+
+      if (!txHash) {
+        setActionSuccess(`${label} completed successfully.`);
+        if (label === "Initiate Dispute") setDisputeOpen(false);
+        void refetch();
+        return;
+      }
+
+      setActionProgress("Submitted to ledger...");
+
+      const pollResult = await pollTransaction(txHash);
+
+      if (pollResult.status === "SUCCESS") {
+        setConfirmedTx({ hash: txHash, ledger: pollResult.ledger ?? null });
+        setActionProgress(
+          pollResult.ledger
+            ? `Confirmed in ledger #${pollResult.ledger}`
+            : "Confirmed in ledger",
+        );
+        setActionSuccess(`${label} completed successfully.`);
+      } else {
+        const detail =
+          pollResult.errorMessage ??
+          pollResult.resultXdr ??
+          (pollResult.status === "TIMEOUT"
+            ? "Timed out waiting for confirmation."
+            : "Transaction failed on-chain.");
+        setActionProgress(null);
+        setActionError(`${label} failed: ${detail}`);
+      }
+
       if (label === "Initiate Dispute") setDisputeOpen(false);
       void refetch();
     } catch (err) {
@@ -305,9 +340,35 @@ export default function TradeDetailPage() {
               {actionError}
             </div>
           )}
+          {actionProgress && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="rounded-lg border border-border-default bg-bg-card px-4 py-3 text-sm text-text-secondary"
+            >
+              {actionProgress}
+            </div>
+          )}
           {actionSuccess && (
             <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
-              {actionSuccess}
+              <p>{actionSuccess}</p>
+              {confirmedTx && (
+                <p className="mt-1 text-xs">
+                  <a
+                    href={getTxExplorerUrl(confirmedTx.hash)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-emerald-300"
+                  >
+                    {confirmedTx.hash}
+                  </a>
+                  {confirmedTx.ledger !== null && (
+                    <span className="ml-2 text-text-muted">
+                      Ledger #{confirmedTx.ledger}
+                    </span>
+                  )}
+                </p>
+              )}
             </div>
           )}
 

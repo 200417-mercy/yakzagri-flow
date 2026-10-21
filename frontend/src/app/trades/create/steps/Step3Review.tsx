@@ -83,6 +83,21 @@ export function Step3Review() {
 
   const total = !isNaN(rawAmount) && rawAmount > 0 ? formatNumber(rawAmount) : "—";
 
+  // Unit price derived from the structured quantity/unit breakdown. Guard
+  // against zero/NaN quantity so we never divide by zero.
+  const computedUnitPrice =
+    !isNaN(rawAmount) && rawAmount > 0 && !isNaN(qty) && qty > 0
+      ? rawAmount / qty
+      : NaN;
+  const unitPriceDisplay =
+    !isNaN(computedUnitPrice) && computedUnitPrice > 0
+      ? formatNumber(computedUnitPrice)
+      : "—";
+  const quantityDisplay = data.quantity
+    ? `${data.quantity}${data.unit ? ` ${data.unit}` : ""}`
+    : "—";
+======
+
   const amountUsdc = !isNaN(rawAmount) && rawAmount > 0 ? rawAmount.toFixed(7) : "0";
   const maxSlippageAmount =
     !isNaN(rawAmount) && rawAmount > 0
@@ -287,7 +302,8 @@ export function Step3Review() {
     <div className="flex flex-col gap-6">
       <div className="rounded-lg bg-bg-elevated border border-border-default px-4 divide-y divide-border-default">
         <ReviewRow label="Commodity" value={data.commodity} />
-        <ReviewRow label="Quantity" value={`${data.quantity} ${data.unit}`} />
+        <ReviewRow label="Quantity" value={quantityDisplay} />
+        <ReviewRow label="Unit Price (auto)" value={`${data.currency} ${unitPriceDisplay}`} />
         <ReviewRow label="Price per unit" value={`${data.currency} ${data.pricePerUnit}`} />
         <ReviewRow label="Total Value" value={`${data.currency} ${total}`} />
         <ReviewRow label="USDC Amount" value={`${amountUsdc} cNGN`} />

@@ -5,9 +5,10 @@ import { useState } from "react";
 import { useTrade } from "../TradeContext";
 import { isValidStellarAddress, validateStep1 } from "../validation";
 import { formatCurrencyAmount, getCurrencyInfo } from "@/lib/currency";
+import { COMMODITY_UNITS } from "@/lib/domain-schemas/trade";
 
 const COMMODITIES = ["Maize", "Rice", "Sorghum", "Millet", "Cassava", "Yam", "Groundnut", "Soybean"];
-const UNITS = ["kg", "tonnes", "bags (50kg)", "bags (100kg)"];
+const UNITS = COMMODITY_UNITS;
 
 export default function Step1Details() {
   const { data, update, setStep } = useTrade();
@@ -15,8 +16,9 @@ export default function Step1Details() {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const qty = parseFloat(data.quantity);
-  const price = parseFloat(data.pricePerUnit);
-  const totalValue = !isNaN(qty) && !isNaN(price) ? qty * price : NaN;
+  const amount = parseFloat(data.pricePerUnit);
+  const totalValue = !isNaN(qty) && !isNaN(amount) ? qty * amount : NaN;
+  const unitPrice = !isNaN(totalValue) && qty > 0 ? totalValue / qty : NaN;
 
   const totalDisplay = isNaN(totalValue)
     ? "—"
@@ -25,12 +27,20 @@ export default function Step1Details() {
         grouping: true,
       });
 
+  const unitPriceDisplay = isNaN(unitPrice)
+    ? "—"
+    : formatCurrencyAmount(unitPrice, data.currency, {
+        showCode: true,
+        grouping: true,
+      });
+
   const isQtyValid = data.quantity !== "" && !isNaN(qty) && qty > 0;
-  const isPriceValid = data.pricePerUnit !== "" && !isNaN(price) && price > 0;
+  const isPriceValid = data.pricePerUnit !== "" && !isNaN(amount) && amount > 0;
+  const isUnitValid = data.unit !== "";
   const isAddressValid = isValidStellarAddress(data.sellerAddress);
 
   const valid =
-    data.commodity !== "" && isQtyValid && isPriceValid && isAddressValid;
+    data.commodity !== "" && isQtyValid && isUnitValid && isPriceValid && isAddressValid;
 
   const handleBlur = (field: string) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
@@ -93,13 +103,16 @@ export default function Step1Details() {
           <select
             id="unit"
             value={data.unit}
-            onChange={(e) => update({ unit: e.target.value })}
+            onChange={(e) => { update({ unit: e.target.value }); setErrors((prev) => ({ ...prev, unit: "" })); }}
+            onBlur={() => handleBlur("unit")}
             className="bg-bg-input border border-border-default rounded-md px-4 py-3 text-text-primary focus:outline-none focus:border-border-focus"
           >
+            <option value="">{translateCopy("ui.select_unit_5f1c2a9")}</option>
             {UNITS.map((u) => (
               <option key={u} value={u}>{u}</option>
             ))}
           </select>
+          {errors.unit && touched.unit && <p role="alert" aria-live="polite" className="text-status-danger text-xs mt-1">{errors.unit}</p>}
         </div>
       </div>
 
@@ -132,10 +145,16 @@ export default function Step1Details() {
         </div>
       </div>
 
-      {/* Total preview */}
-      <div className="flex items-center justify-between rounded-lg bg-bg-elevated px-4 py-3 border border-border-default">
-        <span className="text-sm text-text-secondary">{translateCopy("ui.estimated_total_1636f5a")}</span>
-        <span className="text-gold font-semibold">{totalDisplay}</span>
+      {/* Total and unit price preview */}
+      <div className="flex flex-col gap-2 rounded-lg bg-bg-elevated px-4 py-3 border border-border-default">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-text-secondary">{translateCopy("ui.estimated_total_1636f5a")}</span>
+          <span className="text-gold font-semibold">{totalDisplay}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-text-secondary">{translateCopy("ui.unit_price_7d4e1b2")}</span>
+          <span className="text-text-primary font-semibold">{unitPriceDisplay}</span>
+        </div>
       </div>
 
       <div className="flex flex-col gap-1">
