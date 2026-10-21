@@ -17,6 +17,7 @@ import { shouldDedup, registerAction } from "@/lib/actionDedup";
 import { getOrCreateIdempotencyKey, clearIdempotencyKey } from "@/lib/idempotency";
 import { generateCorrelationId } from "@/lib/correlationId";
 import { formatNumber } from "@/lib/i18n/format";
+import { XdrCountdownBadge } from "@/components/trades/XdrCountdownBadge";
 
 export const SLIPPAGE_TOLERANCE_OPTIONS = [
   { label: "0.5%", value: 0.5, bps: 50 },
@@ -76,6 +77,12 @@ export function Step3Review() {
   const [error, setError] = useState<string | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [slippageTolerance, setSlippageTolerance] = useState<number>(0.5);
+  // Prepared unsigned XDR + its ledger timebounds (maxTime, unix seconds).
+  // Populated once the backend prepares the transaction; drives the expiry countdown.
+  const [preparedXdr, setPreparedXdr] = useState<string | null>(null);
+  const [xdrMaxTime, setXdrMaxTime] = useState<number | null>(null);
+  const [xdrExpired, setXdrExpired] = useState(false);
+  const [refreshingXdr, setRefreshingXdr] = useState(false);
 
   const qty = parseFloat(data.quantity);
   const price = parseFloat(data.pricePerUnit);
@@ -106,6 +113,24 @@ export function Step3Review() {
   const handleDisclaimerAccept = () => {
     setShowDisclaimer(false);
     void handleSubmit();
+  };
+
+  // Re-fetches the prepared unsigned XDR (re-running the prepare flow) and
+  // resets the countdown so the user can sign a fresh transaction.
+  const handleRefreshXdr = async () => {
+    if (refreshingXdr) return;
+    setRefreshingXdr(true);
+    setError(null);
+    try {
+      const refreshed = await prepareTradeXdr();
+      setPreparedXdr(refreshed.xdr);
+      setXdrMaxTime(refreshed.maxTime);
+      setXdrExpired(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to refresh transaction");
+    } finally {
+      setRefreshingXdr(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -192,6 +217,11 @@ export function Step3Review() {
       clearIdempotencyKey(address, dedupKey);
       setTradeId(submission.tradeId);
       setTxHash(submission.transactionHash);
+      if (submission.unsignedXdr) {
+        setPreparedXdr(submission.unsignedXdr);
+        setXdrMaxTime(submission.xdrMaxTime ?? null);
+        setXdrExpired(false);
+      }
       updateToast(correlationId, { type: "success", title: "Success", message: "Trade created — funds locked.", duration: 5000 });
       // Clear draft on success
       try { localStorage.removeItem("amana:draft-trade"); } catch {}
@@ -345,6 +375,13 @@ export function Step3Review() {
         </p>
       )}
 
+      {preparedXdr && xdrMaxTime !== null && (
+        <XdrCountdownBadge
+          maxTime={xdrMaxTime}
+          onExpire={() => setXdrExpired(true)}
+        />
+      )}
+
       <div className="rounded-lg bg-gold-muted border border-gold/20 px-4 py-3 text-sm text-gold">
         {translateCopy("ui.by_submitting_you_authorize_a_st_2a21969")}{" "}{amountUsdc} {translateCopy("ui.cngn_in_the_amana_escrow_contrac_539a265")}
       </div>
@@ -367,23 +404,43 @@ export function Step3Review() {
         >
           {translateCopy("common.back")}
         </button>
-        <button
-          disabled={loading || !isFormValid}
-          onClick={() => setShowDisclaimer(true)}
-          className="flex-1 h-12 rounded-full bg-gradient-gold-cta text-text-inverse font-semibold disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          {loading ? (
-            <>
-              <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-                <path d="M12 2a10 10 0 0 1 10 10" />
-              </svg>
-              {translateCopy("ui.creating_trade_776cf21")}
-            </>
-          ) : (
-            translateCopy("ui.lock_funds_create_trade")
-          )}
-        </button>
+        {xdrExpired ? (
+          <button
+            disabled={refreshingXdr}
+            onClick={() => void handleRefreshXdr()}
+            className="flex-1 h-12 rounded-full bg-gradient-gold-cta text-text-inverse font-semibold disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {refreshingXdr ? (
+              <>
+                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                  <path d="M12 2a10 10 0 0 1 10 10" />
+                </svg>
+                Refreshing…
+              </>
+            ) : (
+              "Refresh Quote / XDR"
+            )}
+          </button>
+        ) : (
+          <button
+            disabled={loading || !isFormValid}
+            onClick={() => setShowDisclaimer(true)}
+            className="flex-1 h-12 rounded-full bg-gradient-gold-cta text-text-inverse font-semibold disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                  <path d="M12 2a10 10 0 0 1 10 10" />
+                </svg>
+                {translateCopy("ui.creating_trade_776cf21")}
+              </>
+            ) : (
+              translateCopy("ui.lock_funds_create_trade")
+            )}
+          </button>
+        )}
       </div>
       <LegalDisclaimerModal
         isOpen={showDisclaimer}
