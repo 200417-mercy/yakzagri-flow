@@ -70,3 +70,17 @@ export function appUrlForPath(pathname: string): string | null {
 export function screenForPath(pathname: string): DeepLinkScreen | null {
   return ROUTES.find((r) => r.match.test(pathname))?.screen ?? null;
 }
+
+/** Stellar networks supported by Stellar Expert's explorer paths. */
+export type StellarExpertNetwork = "public" | "testnet";
+
+/**
+ * Stellar Expert URL for an account or contract address on the given network.
+ * `network` maps directly to the explorer path segment ("public" = mainnet).
+ */
+export function stellarExpertAccountUrl(
+  network: StellarExpertNetwork,
+  address: string,
+): string {
+  return `https://stellar.expert/explorer/${network}/account/${encodeURIComponent(address)}`;
+}
