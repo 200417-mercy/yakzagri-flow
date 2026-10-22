@@ -43,13 +43,13 @@ const CSP_HEADER = "Content-Security-Policy";
  * `camera`/`microphone` to same-origin so the recorder can request them.
  */
 export function buildCsp(nonce: string): string {
-  const directives: Record<string, string> = {
-    "default-src": "'self'",
-    "script-src": `'self' 'nonce-${nonce}' 'strict-dynamic' https:`,
-    "style-src": "'self' 'unsafe-inline'",
-    "img-src": "'self' data: blob: https:",
-    "media-src": "'self' blob:",
-    "font-src": "'self' data:",
+  const directives: Record<string, string[]> = {
+    "default-src": ["'self'"],
+    "script-src": ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'", "https:"],
+    "style-src": ["'self'", "'unsafe-inline'"],
+    "img-src": ["'self'", "data:", "blob:", "https:"],
+    "media-src": ["'self'", "blob:"],
+    "font-src": ["'self'", "data:"],
     "connect-src": buildConnectSrc(),
     "frame-src": buildFrameSrc(),
     "object-src": "'none'",
@@ -65,7 +65,7 @@ export function buildCsp(nonce: string): string {
     .join("; ");
 }
 
-function buildConnectSrc(): string {
+export function buildConnectSrc(): string[] {
   const sources = new Set([
     "'self'",
     ...WALLET_FRAME_ALLOWLIST,
@@ -91,7 +91,7 @@ function buildConnectSrc(): string {
   return Array.from(sources).join(" ");
 }
 
-function buildFrameSrc(): string {
+export function buildFrameSrc(): string[] {
   const configuredOrigins = (process.env.WALLET_FRAME_ALLOWLIST ?? "")
     .split(",")
     .map((origin) => origin.trim())
@@ -119,7 +119,7 @@ export function middleware(request: NextRequest) {
   const csp = buildCsp(nonce);
   const enforce = process.env.CSP_ENFORCE === "true";
   const headerName = enforce
-    ? "Content-Security-Policy"
+    ? CSP_HEADER
     : "Content-Security-Policy-Report-Only";
 
   const requestHeaders = new Headers(request.headers);
