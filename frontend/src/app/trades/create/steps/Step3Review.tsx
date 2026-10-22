@@ -51,6 +51,12 @@ export function estimateSorobanSimulation(rawAmount: number): SorobanSimulationB
 }
 
 type Row = { label: string; value: string };
+type CompletedTrade = { tradeId: string; transactionHash: string };
+type Step3ReviewProps = {
+  onCreated?: (trade: CompletedTrade) => void;
+  completedTrade?: CompletedTrade;
+  onStartNewTrade?: () => void;
+};
 
 function ReviewRow({ label, value }: Row) {
   return (
@@ -61,7 +67,7 @@ function ReviewRow({ label, value }: Row) {
   );
 }
 
-export function Step3Review() {
+export function Step3Review({ onCreated, completedTrade, onStartNewTrade }: Step3ReviewProps) {
   const router = useRouter();
   const { data, setStep } = useTrade();
   const { token, address, isAuthenticated, isWalletConnected, connectWallet, authenticate } = useAuth();
@@ -192,6 +198,7 @@ export function Step3Review() {
       clearIdempotencyKey(address, dedupKey);
       setTradeId(submission.tradeId);
       setTxHash(submission.transactionHash);
+      onCreated?.({ tradeId: submission.tradeId, transactionHash: submission.transactionHash });
       updateToast(correlationId, { type: "success", title: "Success", message: "Trade created — funds locked.", duration: 5000 });
       // Clear draft on success
       try { localStorage.removeItem("amana:draft-trade"); } catch {}
@@ -215,7 +222,10 @@ export function Step3Review() {
     }
   };
 
-  if (tradeId && txHash) {
+  const displayedTradeId = completedTrade?.tradeId ?? tradeId;
+  const displayedTxHash = completedTrade?.transactionHash ?? txHash;
+
+  if (displayedTradeId && displayedTxHash) {
     return (
     <div className="step-review">
       <h2>{translateCopy("ui.review_trade_56119c6")}</h2>
@@ -227,14 +237,14 @@ export function Step3Review() {
         </div>
         <div className="w-full rounded-lg bg-bg-elevated border border-border-default px-4 py-3 text-left">
           <p className="text-xs text-text-muted mb-1">{translateCopy("ui.trade_id_153d513")}</p>
-          <p className="text-emerald font-mono text-sm break-all">{tradeId}</p>
+          <p className="text-emerald font-mono text-sm break-all">{displayedTradeId}</p>
         </div>
         <div className="w-full rounded-lg bg-bg-elevated border border-border-default px-4 py-3 text-left">
           <p className="text-xs text-text-muted mb-1">{translateCopy("ui.transaction_hash_7534364")}</p>
-          <p className="text-emerald font-mono text-sm break-all">{txHash}</p>
+          <p className="text-emerald font-mono text-sm break-all">{displayedTxHash}</p>
         </div>
         <button
-          onClick={() => router.push(`/trades/${tradeId}`)}
+          onClick={() => router.push(`/trades/${displayedTradeId}`)}
           className="h-12 w-full flex items-center justify-center rounded-full bg-gradient-gold-cta text-text-inverse font-semibold"
         >
           {translateCopy("ui.view_trade_details_c527f5b")}
@@ -245,6 +255,15 @@ export function Step3Review() {
         >
           {translateCopy("ui.view_all_trades_20304ec")}
         </Link>
+        {onStartNewTrade && (
+          <button
+            type="button"
+            onClick={onStartNewTrade}
+            className="text-sm text-text-secondary hover:text-text-primary"
+          >
+            {translateCopy("ui.start_new_trade")}
+          </button>
+        )}
       </div>
       </div>
     );
