@@ -52,16 +52,16 @@ export function buildCsp(nonce: string): string {
     "font-src": ["'self'", "data:"],
     "connect-src": buildConnectSrc(),
     "frame-src": buildFrameSrc(),
-    "object-src": ["'none'"],
-    "base-uri": ["'self'"],
-    "form-action": ["'self'"],
-    "frame-ancestors": ["'none'"],
-    "upgrade-insecure-requests": [],
-    "report-uri": ["/api/csp-report"],
+    "object-src": "'none'",
+    "base-uri": "'self'",
+    "form-action": "'self'",
+    "frame-ancestors": "'none'",
+    "upgrade-insecure-requests": "",
+    "report-uri": "/api/csp-report",
   };
 
   return Object.entries(directives)
-    .map(([name, values]) => (values.length ? `${name} ${values.join(" ")}` : name))
+    .map(([name, values]) => (values.length ? `${name} ${values}` : name))
     .join("; ");
 }
 
@@ -88,7 +88,7 @@ export function buildConnectSrc(): string[] {
     }
   }
 
-  return Array.from(sources);
+  return Array.from(sources).join(" ");
 }
 
 export function buildFrameSrc(): string[] {
@@ -96,7 +96,22 @@ export function buildFrameSrc(): string[] {
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
-  return ["'self'", ...WALLET_FRAME_ALLOWLIST, ...configuredOrigins];
+  return ["'self'", ...WALLET_FRAME_ALLOWLIST, ...configuredOrigins].join(" ");
+}
+
+/**
+ * Apply the defense-in-depth security headers that pair with the CSP rollout.
+ * Exported so tests can assert the exact header values without spinning up
+ * the full Next.js runtime.
+ */
+export function applySecurityHeaders(headers: Headers): void {
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  headers.set("X-Frame-Options", "DENY");
+  headers.set(
+    "Permissions-Policy",
+    "camera=(self), microphone=(self), geolocation=(), payment=()",
+  );
 }
 
 export function middleware(request: NextRequest) {
@@ -118,13 +133,7 @@ export function middleware(request: NextRequest) {
   response.headers.set("x-nonce", nonce);
 
   // Defense-in-depth headers that pair naturally with the CSP rollout.
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set(
-    "Permissions-Policy",
-    "camera=(self), microphone=(self), geolocation=(), payment=()",
-  );
+  applySecurityHeaders(response.headers);
 
   return response;
 }
