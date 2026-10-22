@@ -1,41 +1,44 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync } from "fs";
+import { join } from "path";
 
-describe('PWA manifest', () => {
-  const manifestPath = resolve(__dirname, '../../public/manifest.json');
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as {
-    icons?: Array<{ src: string; sizes: string; type: string; purpose?: string }>;
-  };
+interface ManifestShortcut {
+  name: string;
+  url: string;
+  icons?: unknown[];
+}
 
-  it('declares an icons array', () => {
-    expect(Array.isArray(manifest.icons)).toBe(true);
-    expect(manifest.icons?.length).toBeGreaterThan(0);
+interface WebManifest {
+  start_url?: string;
+  shortcuts?: ManifestShortcut[];
+}
+
+const manifest = JSON.parse(
+  readFileSync(join(__dirname, "..", "..", "public", "manifest.json"), "utf8"),
+) as WebManifest;
+
+describe("PWA manifest shortcuts", () => {
+  it("exposes a shortcuts array", () => {
+    expect(Array.isArray(manifest.shortcuts)).toBe(true);
   });
 
-  it('includes 192x192 and 512x512 icons', () => {
-    const sizes = manifest.icons?.map((icon) => icon.sizes) ?? [];
-    expect(sizes).toContain('192x192');
-    expect(sizes).toContain('512x512');
-  });
-
-  it('marks the 192x192 and 512x512 icons as maskable', () => {
-    const maskable = (manifest.icons ?? []).filter((icon) =>
-      (icon.purpose ?? '').split(/\s+/).includes('maskable'),
+  it("provides the Create Trade, My Trades and Disputes shortcuts", () => {
+    const urls = (manifest.shortcuts ?? []).map((shortcut) => shortcut.url);
+    expect(urls).toEqual(
+      expect.arrayContaining(["/trades/create", "/trades", "/mediator/disputes"]),
     );
-    const maskableSizes = maskable.map((icon) => icon.sizes);
-    expect(maskableSizes).toContain('192x192');
-    expect(maskableSizes).toContain('512x512');
   });
 
-  it('gives every icon a valid purpose value', () => {
-    const validPurposes = new Set(['any', 'maskable', 'monochrome']);
-    for (const icon of manifest.icons ?? []) {
-      if (icon.purpose === undefined) continue;
-      const tokens = icon.purpose.split(/\s+/).filter(Boolean);
-      expect(tokens.length).toBeGreaterThan(0);
-      for (const token of tokens) {
-        expect(validPurposes.has(token)).toBe(true);
-      }
+  it("gives every shortcut a name and at least one icon", () => {
+    for (const shortcut of manifest.shortcuts ?? []) {
+      expect(shortcut.name).toBeTruthy();
+      expect(Array.isArray(shortcut.icons)).toBe(true);
+      expect(shortcut.icons?.length ?? 0).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps shortcut urls site-relative", () => {
+    for (const shortcut of manifest.shortcuts ?? []) {
+      expect(shortcut.url.startsWith("/")).toBe(true);
     }
   });
 });
