@@ -167,6 +167,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Bundle size budget check
+        run: pnpm bundle:check
+
   frontend:
     name: Frontend Required Gate
     runs-on: ubuntu-latest
