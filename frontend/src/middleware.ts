@@ -5,6 +5,11 @@ import { getApiBaseUrl, getStellarRpcUrl } from "@/lib/api/env";
 /**
  * Origins allowed to be embedded as frames and connected to (wallet providers).
  * Drives both `connect-src` and `frame-src` below.
+ *
+ * Wallet-frame exemption process: third-party wallet UIs that must be
+ * embedded in an iframe (e.g. a hosted signing widget) should be added to
+ * this allowlist rather than relaxing the policy ad-hoc. Requires security
+ * sign-off before merging an addition. See frontend/docs/security.md.
  */
 const WALLET_FRAME_ALLOWLIST = [
   "https://walletconnect.com",
@@ -30,11 +35,11 @@ const CSP_HEADER = "Content-Security-Policy";
 /**
  * Build the Content-Security-Policy for a given request.
  *
- * Wallet-frame exemption process: third-party wallet UIs that must be
- * embedded in an iframe (e.g. a hosted signing widget) should be added to
- * the `frame-src` allowlist below via WALLET_FRAME_ALLOWLIST (comma
- * separated origins) rather than relaxing the policy ad-hoc. Requires
- * security sign-off before merging an addition.
+ * Per-request nonce strategy: `middleware` generates a fresh nonce for every
+ * request and passes it to `buildCsp`, which emits it in `script-src` as
+ * `'nonce-<value>'` alongside `'strict-dynamic'`. The same nonce is exposed to
+ * the app via the `x-nonce` request/response header so server components can
+ * attach it to inline scripts. See frontend/docs/security.md.
  *
  * PoD video (issue #127): the in-browser recorder captures via
  * getUserMedia/MediaRecorder and plays back the recorded clip from a
