@@ -48,13 +48,13 @@ const CSP_HEADER = "Content-Security-Policy";
  * `camera`/`microphone` to same-origin so the recorder can request them.
  */
 export function buildCsp(nonce: string): string {
-  const directives: Record<string, string> = {
-    "default-src": "'self'",
-    "script-src": `'self' 'nonce-${nonce}' 'strict-dynamic' https:`,
-    "style-src": "'self' 'unsafe-inline'",
-    "img-src": "'self' data: blob: https:",
-    "media-src": "'self' blob:",
-    "font-src": "'self' data:",
+  const directives: Record<string, string[]> = {
+    "default-src": ["'self'"],
+    "script-src": ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'", "https:"],
+    "style-src": ["'self'", "'unsafe-inline'"],
+    "img-src": ["'self'", "data:", "blob:", "https:"],
+    "media-src": ["'self'", "blob:"],
+    "font-src": ["'self'", "data:"],
     "connect-src": buildConnectSrc(),
     "frame-src": buildFrameSrc(),
     "object-src": "'none'",
@@ -70,7 +70,7 @@ export function buildCsp(nonce: string): string {
     .join("; ");
 }
 
-function buildConnectSrc(): string[] {
+export function buildConnectSrc(): string[] {
   const sources = new Set([
     "'self'",
     ...WALLET_FRAME_ALLOWLIST,
@@ -93,15 +93,30 @@ function buildConnectSrc(): string[] {
     }
   }
 
-  return Array.from(sources);
+  return Array.from(sources).join(" ");
 }
 
-function buildFrameSrc(): string[] {
+export function buildFrameSrc(): string[] {
   const configuredOrigins = (process.env.WALLET_FRAME_ALLOWLIST ?? "")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
-  return ["'self'", ...WALLET_FRAME_ALLOWLIST, ...configuredOrigins];
+  return ["'self'", ...WALLET_FRAME_ALLOWLIST, ...configuredOrigins].join(" ");
+}
+
+/**
+ * Apply the defense-in-depth security headers that pair with the CSP rollout.
+ * Exported so tests can assert the exact header values without spinning up
+ * the full Next.js runtime.
+ */
+export function applySecurityHeaders(headers: Headers): void {
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  headers.set("X-Frame-Options", "DENY");
+  headers.set(
+    "Permissions-Policy",
+    "camera=(self), microphone=(self), geolocation=(), payment=()",
+  );
 }
 
 export function middleware(request: NextRequest) {
@@ -109,7 +124,7 @@ export function middleware(request: NextRequest) {
   const csp = buildCsp(nonce);
   const enforce = process.env.CSP_ENFORCE === "true";
   const headerName = enforce
-    ? "Content-Security-Policy"
+    ? CSP_HEADER
     : "Content-Security-Policy-Report-Only";
 
   const requestHeaders = new Headers(request.headers);
@@ -123,13 +138,7 @@ export function middleware(request: NextRequest) {
   response.headers.set("x-nonce", nonce);
 
   // Defense-in-depth headers that pair naturally with the CSP rollout.
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set(
-    "Permissions-Policy",
-    "camera=(self), microphone=(self), geolocation=(), payment=()",
-  );
+  applySecurityHeaders(response.headers);
 
   return response;
 }
