@@ -103,8 +103,5 @@ Distributed under the MIT License. See `LICENSE` for more information.
 <!-- handsoff-issue-95 -->
 - #95: [docs] Fix README duplicated CI section and stray text
 
-<!-- handsoff-issue-291 -->
-- #291: [perf] Convert static PNG icons in app/assets/ (ExportIcon, NetworkIcon, RequestIcon) to optimized inline SVGs
-
-<!-- handsoff-issue-293 -->
-- #293: [perf] Memoize filtered and sorted trade lists in /trades and /assets using useMemo
+<!-- handsoff-issue-273 -->
+- #273: [testing] Add unit tests for lib/api/trades.ts, streams.ts, wallet.ts, and reputation.ts clients
