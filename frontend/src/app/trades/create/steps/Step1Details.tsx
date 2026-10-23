@@ -3,7 +3,12 @@ import { t as translateCopy } from "@/lib/i18n";
 
 import { useState } from "react";
 import { useTrade } from "../TradeContext";
-import { isValidStellarAddress, validateStep1 } from "../validation";
+import {
+  isValidStellarAddress,
+  validateStep1,
+  validateDeliveryDeadline,
+  formatRelativeDeliveryWindow,
+} from "../validation";
 import { formatCurrencyAmount, getCurrencyInfo } from "@/lib/currency";
 
 const COMMODITIES = ["Maize", "Rice", "Sorghum", "Millet", "Cassava", "Yam", "Groundnut", "Soybean"];
@@ -28,9 +33,15 @@ export default function Step1Details() {
   const isQtyValid = data.quantity !== "" && !isNaN(qty) && qty > 0;
   const isPriceValid = data.pricePerUnit !== "" && !isNaN(price) && price > 0;
   const isAddressValid = isValidStellarAddress(data.sellerAddress);
+  const deliveryDeadlineError = validateDeliveryDeadline(data.deliveryDeadline);
+  const deliveryDeadlineSummary = formatRelativeDeliveryWindow(data.deliveryDeadline);
 
   const valid =
-    data.commodity !== "" && isQtyValid && isPriceValid && isAddressValid;
+    data.commodity !== "" &&
+    isQtyValid &&
+    isPriceValid &&
+    isAddressValid &&
+    deliveryDeadlineError === "";
 
   const handleBlur = (field: string) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
@@ -43,7 +54,7 @@ export default function Step1Details() {
 
   const handleContinue = () => {
     const allTouched: Record<string, boolean> = {};
-    for (const key of ["commodity", "quantity", "unit", "pricePerUnit", "currency", "sellerAddress"]) {
+    for (const key of ["commodity", "quantity", "unit", "pricePerUnit", "currency", "sellerAddress", "deliveryDeadline"]) {
       allTouched[key] = true;
     }
     setTouched(allTouched);
@@ -150,6 +161,22 @@ export default function Step1Details() {
           className="bg-bg-input border border-border-default rounded-md px-4 py-3 text-text-primary font-mono text-sm focus:outline-none focus:border-border-focus"
         />
         {errors.sellerAddress && touched.sellerAddress && <p role="alert" aria-live="polite" className="text-status-danger text-xs mt-1">{errors.sellerAddress}</p>}
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="delivery-deadline" className="text-sm text-text-secondary">{translateCopy("trade.delivery_deadline")}</label>
+        <input
+          id="delivery-deadline"
+          type="datetime-local"
+          value={data.deliveryDeadline}
+          onChange={(e) => { update({ deliveryDeadline: e.target.value }); setErrors((prev) => ({ ...prev, deliveryDeadline: "" })); }}
+          onBlur={() => handleBlur("deliveryDeadline")}
+          className="bg-bg-input border border-border-default rounded-md px-4 py-3 text-text-primary focus:outline-none focus:border-border-focus"
+        />
+        {deliveryDeadlineSummary && !deliveryDeadlineError && (
+          <p className="text-text-secondary text-xs mt-1">{deliveryDeadlineSummary}</p>
+        )}
+        {errors.deliveryDeadline && touched.deliveryDeadline && <p role="alert" aria-live="polite" className="text-status-danger text-xs mt-1">{errors.deliveryDeadline}</p>}
       </div>
 
       <button

@@ -6,6 +6,12 @@ import {
   ManifestSchema,
   NotificationPreferencesSchema,
 } from "@/lib/validation/schemas";
+import {
+  validateDeliveryDeadline,
+  formatDeliveryWindow,
+  MIN_DELIVERY_LEAD_MS,
+  MAX_DELIVERY_WINDOW_MS,
+} from "@/app/trades/create/validation";
 
 // ── TradeSchema ───────────────────────────────────────────────────────────────
 
@@ -308,5 +314,78 @@ describe("NotificationPreferencesSchema", () => {
       settlementAlerts: false,
     };
     expect(() => NotificationPreferencesSchema.parse(allFalse)).not.toThrow();
+  });
+});
+
+// ── Delivery deadline validation ──────────────────────────────────────────────
+
+describe("validateDeliveryDeadline", () => {
+  const now = new Date("2024-06-01T12:00:00Z").getTime();
+
+  it("accepts a deadline exactly 1 hour in the future (boundary)", () => {
+    const deadline = new Date(now + MIN_DELIVERY_LEAD_MS).toISOString();
+    expect(validateDeliveryDeadline(deadline, now)).toBeNull();
+  });
+
+  it("rejects a deadline just under 1 hour in the future", () => {
+    const deadline = new Date(now + MIN_DELIVERY_LEAD_MS - 1000).toISOString();
+    const error = validateDeliveryDeadline(deadline, now);
+    expect(error).not.toBeNull();
+    expect(error).toMatch(/1 hour/i);
+  });
+
+  it("rejects a past deadline", () => {
+    const deadline = new Date(now - 60_000).toISOString();
+    const error = validateDeliveryDeadline(deadline, now);
+    expect(error).not.toBeNull();
+    expect(error).toMatch(/future/i);
+  });
+
+  it("accepts a deadline exactly 180 days out (boundary)", () => {
+    const deadline = new Date(now + MAX_DELIVERY_WINDOW_MS).toISOString();
+    expect(validateDeliveryDeadline(deadline, now)).toBeNull();
+  });
+
+  it("rejects a deadline just over 180 days out", () => {
+    const deadline = new Date(now + MAX_DELIVERY_WINDOW_MS + 1000).toISOString();
+    const error = validateDeliveryDeadline(deadline, now);
+    expect(error).not.toBeNull();
+    expect(error).toMatch(/180 days/i);
+  });
+
+  it("rejects an empty deadline", () => {
+    expect(validateDeliveryDeadline("", now)).not.toBeNull();
+  });
+
+  it("rejects an unparseable deadline", () => {
+    expect(validateDeliveryDeadline("not-a-date", now)).not.toBeNull();
+  });
+});
+
+describe("formatDeliveryWindow", () => {
+  const now = new Date("2024-06-01T12:00:00Z").getTime();
+
+  it("formats a window of several days", () => {
+    const deadline = new Date(now + 5 * 24 * 60 * 60 * 1000).toISOString();
+    expect(formatDeliveryWindow(deadline, now)).toBe("In 5 days");
+  });
+
+  it("formats a window of one day in singular form", () => {
+    const deadline = new Date(now + 24 * 60 * 60 * 1000).toISOString();
+    expect(formatDeliveryWindow(deadline, now)).toBe("In 1 day");
+  });
+
+  it("formats a window of several hours", () => {
+    const deadline = new Date(now + 3 * 60 * 60 * 1000).toISOString();
+    expect(formatDeliveryWindow(deadline, now)).toBe("In 3 hours");
+  });
+
+  it("formats a window of one hour in singular form", () => {
+    const deadline = new Date(now + 60 * 60 * 1000).toISOString();
+    expect(formatDeliveryWindow(deadline, now)).toBe("In 1 hour");
+  });
+
+  it("returns an empty string for an invalid deadline", () => {
+    expect(formatDeliveryWindow("not-a-date", now)).toBe("");
   });
 });

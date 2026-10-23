@@ -204,6 +204,29 @@ describe('Step3Review', () => {
             expect(deliveryRow).toHaveTextContent('7 days');
         });
 
+        it('should display relative delivery window summary from trade context', () => {
+            const futureDate = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+            renderWithProvider({ deliveryDate: futureDate });
+
+            const deliveryRow = screen.getByText('Delivery Window').closest('div');
+            expect(deliveryRow).toHaveTextContent(/In 5 days/i);
+        });
+
+        it('should display relative duration for a near-term delivery date', () => {
+            const futureDate = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+            renderWithProvider({ deliveryDate: futureDate });
+
+            const deliveryRow = screen.getByText('Delivery Window').closest('div');
+            expect(deliveryRow).toHaveTextContent(/In 2 hours/i);
+        });
+
+        it('should fall back to delivery days when no delivery date is set', () => {
+            renderWithProvider({ deliveryDays: '14' });
+
+            const deliveryRow = screen.getByText('Delivery Window').closest('div');
+            expect(deliveryRow).toHaveTextContent('14 days');
+        });
+
         it('should display notes when present', () => {
             renderWithProvider();
 
