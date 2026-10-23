@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import Step3Review from '../steps/Step3Review';
@@ -326,6 +326,50 @@ describe('Step3Review', () => {
             const loadingButton = screen.getByRole('button', { name: /creating trade/i });
             expect(loadingButton).toBeDisabled();
         });
+
+        it('should submit once when the disclaimer is accepted twice before rendering', async () => {
+            const user = userEvent.setup();
+            let resolveSigning!: (value: { signedTxXdr: string }) => void;
+            (signTransaction as jest.Mock).mockReturnValue(new Promise((resolve) => {
+                resolveSigning = resolve;
+            }));
+            renderWithProvider(validData);
+
+            await user.click(screen.getByRole('button', { name: /lock funds & create trade/i }));
+            const acceptButton = screen.getByRole('button', { name: /accept/i });
+            act(() => {
+                const click = () => acceptButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                click();
+                click();
+            });
+
+            await waitFor(() => expect(signTransaction).toHaveBeenCalledTimes(1));
+            expect(api.trades.create).toHaveBeenCalledTimes(1);
+            await act(async () => {
+                resolveSigning({ signedTxXdr: 'signed-xdr' });
+            });
+        });
+
+        it('should release the submit lock when wallet signing is rejected', async () => {
+            const user = userEvent.setup();
+            (signTransaction as jest.Mock)
+                .mockRejectedValueOnce(new Error('User rejected'))
+                .mockResolvedValueOnce({ signedTxXdr: 'signed-xdr' });
+            renderWithProvider(validData);
+
+            await user.click(screen.getByRole('button', { name: /lock funds & create trade/i }));
+            await user.click(screen.getByRole('button', { name: /accept/i }));
+            await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('User rejected'));
+
+            _clearAllForTests();
+            await user.click(screen.getByRole('button', { name: /lock funds & create trade/i }));
+            await user.click(screen.getByRole('button', { name: /accept/i }));
+
+            await waitFor(() => {
+                expect(api.trades.create).toHaveBeenCalledTimes(2);
+                expect(signTransaction).toHaveBeenCalledTimes(2);
+            });
+        });
     });
 
     describe('error states', () => {
@@ -519,6 +563,43 @@ describe('Step3Review', () => {
 
             // Button should be disabled when empty
             expect(submitButton).toBeDisabled();
+        });
+
+        it('should render slippage tolerance selector and update selected tolerance', async () => {
+            const user = userEvent.setup();
+            renderWithProvider({
+                commodity: 'Maize',
+                quantity: '100',
+                pricePerUnit: '10',
+                sellerAddress: 'GBRP4ZDXSS6NZPMTVNE7DZ47JNV7OFPJMIVG4FDCMNZP7CHH4656YEXI',
+                buyerRatio: 50,
+                sellerRatio: 50,
+                deliveryDays: '7',
+            });
+
+            expect(screen.getByTestId('slippage-tolerance-section')).toBeInTheDocument();
+            const btn1Pct = screen.getByRole('button', { name: '1.0%' });
+            await user.click(btn1Pct);
+            expect(btn1Pct).toHaveAttribute('aria-pressed', 'true');
+            expect(screen.getByText(/Max spend: 1010\.00 cNGN/i)).toBeInTheDocument();
+        });
+
+        it('should display Soroban simulation fee and resource breakdown before signing', () => {
+            renderWithProvider({
+                commodity: 'Maize',
+                quantity: '100',
+                pricePerUnit: '10',
+                sellerAddress: 'GBRP4ZDXSS6NZPMTVNE7DZ47JNV7OFPJMIVG4FDCMNZP7CHH4656YEXI',
+                buyerRatio: 50,
+                sellerRatio: 50,
+                deliveryDays: '7',
+            });
+
+            const simSection = screen.getByTestId('soroban-simulation-breakdown');
+            expect(simSection).toBeInTheDocument();
+            expect(simSection).toHaveTextContent(/Soroban Simulation & Fee Breakdown/i);
+            expect(simSection).toHaveTextContent(/CPU Instructions:/i);
+            expect(simSection).toHaveTextContent(/Ledger I\/O:/i);
         });
     });
 });

@@ -20,12 +20,8 @@ export function Toast({
 }: ToastProps) {
   const [isClosing, setIsClosing] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const timerStartedAtRef = useRef<number | null>(null);
-  const remainingDurationRef = useRef(duration);
-  const isHoveredRef = useRef(false);
-  const isFocusedRef = useRef(false);
-  const isClosingRef = useRef(false);
+  // Milliseconds left before auto-dismiss, preserved across pause/resume.
+  const remainingRef = useRef(duration);
 
   const handleClose = useCallback(() => {
     if (isClosingRef.current) return;
@@ -40,41 +36,25 @@ export function Toast({
     }, 300); // 300ms matches our transition duration
   }, [id, onClose]);
 
+  // Reset the countdown whenever the duration prop changes.
   useEffect(() => {
-    remainingDurationRef.current = duration;
-    if (duration <= 0) return;
+    remainingRef.current = duration;
+  }, [duration]);
 
-    timerStartedAtRef.current = Date.now();
-    timeoutRef.current = setTimeout(handleClose, duration);
+  // Auto-dismiss countdown. Pauses while the toast is hovered or holds focus
+  // (WCAG 2.2.1 Timing Adjustable) and resumes with the remaining time on leave.
+  useEffect(() => {
+    if (duration <= 0 || isPaused) return;
+    const startedAt = Date.now();
+    const timer = setTimeout(() => {
+      remainingRef.current = 0;
+      handleClose();
+    }, remainingRef.current);
     return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-      timerStartedAtRef.current = null;
+      clearTimeout(timer);
+      remainingRef.current = Math.max(0, remainingRef.current - (Date.now() - startedAt));
     };
-  }, [duration, handleClose]);
-
-  const pauseTimer = useCallback(() => {
-    if (!timeoutRef.current) return;
-
-    clearTimeout(timeoutRef.current);
-    timeoutRef.current = null;
-    if (timerStartedAtRef.current !== null) {
-      remainingDurationRef.current = Math.max(
-        0,
-        remainingDurationRef.current - (Date.now() - timerStartedAtRef.current),
-      );
-    }
-    timerStartedAtRef.current = null;
-    setIsPaused(true);
-  }, []);
-
-  const resumeTimer = useCallback(() => {
-    if (duration <= 0 || timeoutRef.current || isClosingRef.current) return;
-
-    timerStartedAtRef.current = Date.now();
-    timeoutRef.current = setTimeout(handleClose, remainingDurationRef.current);
-    setIsPaused(false);
-  }, [duration, handleClose]);
+  }, [duration, isPaused, handleClose]);
 
   const IconMap = {
     success: CheckCircle,
@@ -87,7 +67,7 @@ export function Toast({
 
   // Base styling for the toast
   const baseClasses =
-    "pointer-events-auto flex w-full max-w-md rounded-lg shadow-card ring-1 ring-black/5 p-4 transition-all duration-300 transform items-start gap-3 relative overflow-hidden backdrop-blur-md";
+    "pointer-events-auto flex w-full max-w-md rounded-lg shadow-elev-1 ring-1 ring-black/5 p-4 transition-all duration-300 transform items-start gap-3 relative overflow-hidden backdrop-blur-md";
 
   // Animation classes
   const animationClasses = isClosing
@@ -140,6 +120,10 @@ export function Toast({
       )}
       role="group"
       aria-labelledby={title ? titleId : undefined}
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      onFocus={() => setIsPaused(true)}
+      onBlur={() => setIsPaused(false)}
     >
       <Icon className={clsx("h-6 w-6 shrink-0", iconColors[type])} />
       <div className="flex-1 pt-0.5">
