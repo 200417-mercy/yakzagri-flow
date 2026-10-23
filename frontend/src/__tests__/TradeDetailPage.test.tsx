@@ -287,6 +287,99 @@ describe("Trade Detail — role-based action buttons", () => {
   });
 });
 
+// ── Next Required Action callout ──────────────────────────────────────────────
+
+describe("Trade Detail — Next Required Action callout", () => {
+  it("shows an action-required deposit message for the buyer in PENDING", () => {
+    mockAuth(BUYER_ADDRESS);
+    mockUseTradeDetail.mockReturnValue({
+      trade: makeTrade("PENDING"),
+      loading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    render(<TradeDetailPage />);
+    const callout = screen.getByTestId("next-action-callout");
+    expect(callout).toBeInTheDocument();
+    expect(callout).toHaveTextContent(/action required/i);
+    expect(callout).toHaveTextContent(/deposit/i);
+  });
+
+  it("shows a waiting-for-buyer message for the seller in PENDING", () => {
+    mockAuth(SELLER_ADDRESS);
+    mockUseTradeDetail.mockReturnValue({
+      trade: makeTrade("PENDING"),
+      loading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    render(<TradeDetailPage />);
+    const callout = screen.getByTestId("next-action-callout");
+    expect(callout).toBeInTheDocument();
+    expect(callout).toHaveTextContent(/waiting for buyer/i);
+  });
+
+  it("shows an action-required release message for the seller in FUNDED", () => {
+    mockAuth(SELLER_ADDRESS);
+    mockUseTradeDetail.mockReturnValue({
+      trade: makeTrade("FUNDED"),
+      loading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    render(<TradeDetailPage />);
+    const callout = screen.getByTestId("next-action-callout");
+    expect(callout).toBeInTheDocument();
+    expect(callout).toHaveTextContent(/action required/i);
+    expect(callout).toHaveTextContent(/release/i);
+  });
+
+  it("shows an action-required confirm-delivery message for the buyer in FUNDED", () => {
+    mockAuth(BUYER_ADDRESS);
+    mockUseTradeDetail.mockReturnValue({
+      trade: makeTrade("FUNDED"),
+      loading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    render(<TradeDetailPage />);
+    const callout = screen.getByTestId("next-action-callout");
+    expect(callout).toBeInTheDocument();
+    expect(callout).toHaveTextContent(/action required/i);
+    expect(callout).toHaveTextContent(/confirm delivery/i);
+  });
+
+  it("shows an action-required mediation message for a mediator in DISPUTED", () => {
+    mockAuth("GMEDIATOR00000000000000000000000000000000000000000000000");
+    mockUseTradeDetail.mockReturnValue({
+      trade: makeTrade("DISPUTED"),
+      loading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    render(<TradeDetailPage />);
+    const callout = screen.getByTestId("next-action-callout");
+    expect(callout).toBeInTheDocument();
+    expect(callout).toHaveTextContent(/action required/i);
+    expect(callout).toHaveTextContent(/mediat/i);
+  });
+
+  it("shows a neutral waiting message for an observer", () => {
+    mockAuth("GOBSERVER000000000000000000000000000000000000000000000000");
+    mockUseTradeDetail.mockReturnValue({
+      trade: makeTrade("FUNDED"),
+      loading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    render(<TradeDetailPage />);
+    const callout = screen.getByTestId("next-action-callout");
+    expect(callout).toBeInTheDocument();
+    expect(callout).toHaveTextContent(/waiting/i);
+    expect(callout).not.toHaveTextContent(/action required/i);
+  });
+});
+
 // ── Signing flow ───────────────────────────────────────────────────────────────
 
 describe("Trade Detail — Freighter signing flow", () => {

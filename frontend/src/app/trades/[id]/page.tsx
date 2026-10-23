@@ -26,6 +26,8 @@ import {
   ModalFooter,
 } from "@/components/ui/Modal";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { NextActionCallout } from "@/components/trades/NextActionCallout";
+import { resolveNextAction } from "@/lib/trades/nextAction";
 
 function formatDate(dateString: string) {
   return formatDateTime(dateString);
@@ -104,6 +106,8 @@ export default function TradeDetailPage() {
     : "observer";
 
   const status = (trade?.status ?? "").toUpperCase();
+
+  const nextAction = trade ? resolveNextAction(role, status) : null;
 
   async function runAction(
     label: string,
@@ -232,11 +236,22 @@ export default function TradeDetailPage() {
 
       {/* Loading state */}
       {loading && (
-        <div className="flex items-center justify-center py-12">
-          <svg className="animate-spin w-8 h-8 text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-            <path d="M12 2a10 10 0 0 1 10 10" />
-          </svg>
+        <div role="status" aria-busy="true" aria-label="Loading trade details" className="space-y-4 py-4">
+          <div className="rounded-lg border border-border-default bg-bg-secondary p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="h-6 w-40 animate-pulse rounded bg-bg-tertiary" />
+              <div className="h-6 w-24 animate-pulse rounded-full bg-bg-tertiary" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              <div className="h-16 animate-pulse rounded bg-bg-tertiary" />
+              <div className="h-16 animate-pulse rounded bg-bg-tertiary" />
+              <div className="h-16 animate-pulse rounded bg-bg-tertiary" />
+            </div>
+          </div>
+          <div className="rounded-lg border border-border-default bg-bg-secondary p-6 space-y-3">
+            <div className="h-5 w-32 animate-pulse rounded bg-bg-tertiary" />
+            <div className="h-12 w-full animate-pulse rounded bg-bg-tertiary" />
+          </div>
         </div>
       )}
 
@@ -329,6 +344,9 @@ export default function TradeDetailPage() {
               {actionSuccess}
             </div>
           )}
+
+          {/* Next required action callout */}
+          {nextAction && <NextActionCallout action={nextAction} role={role} />}
 
           {/* Role-based action buttons */}
           {isAuthenticated && (

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import Step3Review from '../steps/Step3Review';
@@ -326,6 +326,50 @@ describe('Step3Review', () => {
 
             const loadingButton = screen.getByRole('button', { name: /creating trade/i });
             expect(loadingButton).toBeDisabled();
+        });
+
+        it('should submit once when the disclaimer is accepted twice before rendering', async () => {
+            const user = userEvent.setup();
+            let resolveSigning!: (value: { signedTxXdr: string }) => void;
+            (signTransaction as jest.Mock).mockReturnValue(new Promise((resolve) => {
+                resolveSigning = resolve;
+            }));
+            renderWithProvider(validData);
+
+            await user.click(screen.getByRole('button', { name: /lock funds & create trade/i }));
+            const acceptButton = screen.getByRole('button', { name: /accept/i });
+            act(() => {
+                const click = () => acceptButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                click();
+                click();
+            });
+
+            await waitFor(() => expect(signTransaction).toHaveBeenCalledTimes(1));
+            expect(api.trades.create).toHaveBeenCalledTimes(1);
+            await act(async () => {
+                resolveSigning({ signedTxXdr: 'signed-xdr' });
+            });
+        });
+
+        it('should release the submit lock when wallet signing is rejected', async () => {
+            const user = userEvent.setup();
+            (signTransaction as jest.Mock)
+                .mockRejectedValueOnce(new Error('User rejected'))
+                .mockResolvedValueOnce({ signedTxXdr: 'signed-xdr' });
+            renderWithProvider(validData);
+
+            await user.click(screen.getByRole('button', { name: /lock funds & create trade/i }));
+            await user.click(screen.getByRole('button', { name: /accept/i }));
+            await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('User rejected'));
+
+            _clearAllForTests();
+            await user.click(screen.getByRole('button', { name: /lock funds & create trade/i }));
+            await user.click(screen.getByRole('button', { name: /accept/i }));
+
+            await waitFor(() => {
+                expect(api.trades.create).toHaveBeenCalledTimes(2);
+                expect(signTransaction).toHaveBeenCalledTimes(2);
+            });
         });
     });
 

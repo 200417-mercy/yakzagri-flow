@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { StrKey } from "@stellar/stellar-sdk";
+import { t } from "@/lib/i18n";
 
 export function isValidStellarAddress(val: string): boolean {
   const trimmed = val.trim();
@@ -55,17 +56,23 @@ export const step1Schema = z
     }
   });
 
-export const step2Schema = z.object({
-  buyerRatio: z.number().min(0).max(100),
-  sellerRatio: z.number().min(0).max(100),
-  deliveryDays: z.string().refine(
-    (val) => {
-      const n = parseInt(val);
-      return !isNaN(n) && n >= 1 && n <= 90;
-    },
-    { message: "Delivery window must be between 1 and 90 days" }
-  ),
-});
+export const step1Schema = createStep1Schema();
+
+export function createStep2Schema() {
+  return z.object({
+    buyerRatio: z.number().min(0).max(100),
+    sellerRatio: z.number().min(0).max(100),
+    deliveryDays: z.string().refine(
+      (val) => {
+        const n = parseInt(val);
+        return !isNaN(n) && n >= 1 && n <= 90;
+      },
+      { message: t("validation.deliveryWindowRange") }
+    ),
+  });
+}
+
+export const step2Schema = createStep2Schema();
 
 export const step3Schema = z
   .object({
@@ -115,9 +122,9 @@ export function validateStep1(
 export function validateStep2(data: { buyerRatio: number; sellerRatio: number; deliveryDays: string }): Record<string, string> {
   const errors: Record<string, string> = {};
   if (data.buyerRatio + data.sellerRatio !== 100) {
-    errors.sum = "Loss ratios must sum to 100%";
+    errors.sum = t("validation.lossRatiosSum");
   }
-  const result = step2Schema.safeParse(data);
+  const result = createStep2Schema().safeParse(data);
   if (!result.success) {
     for (const issue of result.error.issues) {
       const path = issue.path.join(".");
