@@ -6,6 +6,7 @@ import { TradeProvider, useTrade, TradeData } from '../TradeContext';
 import { api } from '@/lib/api';
 import { signTransaction } from '@stellar/freighter-api';
 import { _clearAllForTests } from '@/lib/actionDedup';
+import { useXdrExpiry } from '@/hooks/useXdrExpiry';
 
 // Mock @stellar/stellar-sdk to simplify address validation in tests
 jest.mock('@stellar/stellar-sdk', () => ({
@@ -601,5 +602,102 @@ describe('Step3Review', () => {
             expect(simSection).toHaveTextContent(/CPU Instructions:/i);
             expect(simSection).toHaveTextContent(/Ledger I\/O:/i);
         });
+    });
+
+    describe('XDR expiration countdown', () => {
+        const validData = {
+            commodity: 'Maize',
+            quantity: '100',
+            pricePerUnit: '10',
+            sellerAddress: 'GBRP4ZDXSS6NZPMTVNE7DZ47JNV7OFPJMIVG4FDCMNZP7CHH4656YEXI',
+            buyerRatio: 50,
+            sellerRatio: 50,
+            deliveryDays: '7',
+            notes: 'Some notes',
+        };
+
+        beforeEach(() => {
+            jest.useFakeTimers();
+        });
+
+        afterEach(() => {
+            jest.useRealTimers();
+        });
+
+        it('shows remaining validity, then disables sign and offers refresh once expired', async () => {
+            const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+            const nowSeconds = Math.floor(Date.now() / 1000);
+            const maxTime = nowSeconds + 10;
+
+            (api.trades.create as jest.Mock).mockResolvedValue({
+                tradeId: 'trade-123',
+                unsignedXdr: 'mock-xdr',
+                maxTime,
+            });
+
+            renderWithProvider(validData);
+
+            await user.click(screen.getByRole('button', { name: /lock funds & create trade/i }));
+            await user.click(screen.getByRole('button', { name: /accept/i }));
+
+            // Prepared XDR is now available; countdown badge should be visible.
+            await waitFor(() => expect(screen.getByTestId('xdr-expiry-badge')).toBeInTheDocument());
+            expect(screen.getByTestId('xdr-expiry-badge')).toHaveTextContent(/10s|9s/);
+
+            const signButton = screen.getByRole('button', { name: /sign & submit/i });
+            expect(signButton).not.toBeDisabled();
+
+            // Advance past expiration.
+            act(() => {
+                jest.advanceTimersByTime(11_000);
+            });
+
+            await waitFor(() => {
+                expect(screen.getByRole('button', { name: /refresh quote \/ xdr/i })).toBeInTheDocument();
+            });
+            expect(screen.queryByRole('button', { name: /sign & submit/i })).not.toBeInTheDocument();
+        });
+    });
+});
+
+describe('useXdrExpiry', () => {
+    beforeEach(() => {
+        jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+        jest.useRealTimers();
+    });
+
+    const Harness = ({ maxTime }: { maxTime: number | null | undefined }) => {
+        const { secondsRemaining, isExpired } = useXdrExpiry(maxTime);
+        return (
+            <div>
+                <span data-testid="remaining">{secondsRemaining}</span>
+                <span data-testid="expired">{String(isExpired)}</span>
+            </div>
+        );
+    };
+
+    it('transitions from counting down to expired', () => {
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const maxTime = nowSeconds + 5;
+
+        render(<Harness maxTime={maxTime} />);
+
+        expect(screen.getByTestId('expired')).toHaveTextContent('false');
+        expect(Number(screen.getByTestId('remaining').textContent)).toBeGreaterThan(0);
+
+        act(() => {
+            jest.advanceTimersByTime(6_000);
+        });
+
+        expect(screen.getByTestId('expired')).toHaveTextContent('true');
+        expect(screen.getByTestId('remaining')).toHaveTextContent('0');
+    });
+
+    it('reports not expired when maxTime is absent', () => {
+        render(<Harness maxTime={null} />);
+        expect(screen.getByTestId('expired')).toHaveTextContent('false');
     });
 });
