@@ -31,6 +31,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
   "categories": ["finance", "agriculture", "business"],
@@ -39,7 +45,7 @@
     {
       "name": "Create Trade",
       "short_name": "Create Trade",
-      "description": "Start a new escrow-protected agricultural trade",
+      "description": "Start a new escrow-backed trade",
       "url": "/trades/create",
       "icons": [
         {
@@ -52,7 +58,7 @@
     {
       "name": "My Trades",
       "short_name": "My Trades",
-      "description": "View active, pending, and completed trades",
+      "description": "View your active and completed trades",
       "url": "/trades",
       "icons": [
         {
@@ -65,7 +71,7 @@
     {
       "name": "Disputes",
       "short_name": "Disputes",
-      "description": "Review and manage trade disputes",
+      "description": "Review and resolve trade disputes",
       "url": "/mediator/disputes",
       "icons": [
         {

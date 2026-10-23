@@ -16,13 +16,6 @@ const config: Config = {
         "surface-2": "var(--surface-2)",
         "surface-3": "var(--surface-3)",
 
-        // Legacy bg-* aliases — kept for backward-compat
-        "bg-primary": "var(--bg-primary)",
-        "bg-card": "var(--bg-card)",
-        "bg-elevated": "var(--bg-elevated)",
-        "bg-input": "var(--bg-input)",
-        "bg-overlay": "var(--bg-overlay)",
-
         gold: "var(--gold)",
         "gold-hover": "var(--gold-hover)",
         "gold-muted": "var(--gold-muted)",
@@ -47,6 +40,13 @@ const config: Config = {
         "status-info": "var(--status-info)",
         "status-locked": "var(--status-locked)",
         "status-draft": "var(--status-draft)",
+
+        // Canonical surface/elevated/card tokens. One name per token:
+        // bg-surface-* for the elevation scale, bg-card for the card fill.
+        card: "var(--surface-1)",
+        elevated: "var(--surface-2)",
+        "bg-elevated": "var(--surface-2)",
+        "bg-card": "var(--surface-1)",
 
         // Semantic status aliases used by the *State components. These map the
         // short names (bg-danger, text-warning, ...) onto the same CSS variables
@@ -79,11 +79,9 @@ const config: Config = {
         "surface-2": "var(--surface-2)",
         "surface-3": "var(--surface-3)",
         // Legacy aliases
-        primary: "var(--bg-primary)",
-        card: "var(--bg-card)",
-        elevated: "var(--bg-elevated)",
-        input: "var(--bg-input)",
-        overlay: "var(--bg-overlay)",
+        card: "var(--surface-1)",
+        elevated: "var(--surface-2)",
+        "bg-elevated": "var(--surface-2)",
       },
       textColor: {
         primary: "var(--text-primary)",
