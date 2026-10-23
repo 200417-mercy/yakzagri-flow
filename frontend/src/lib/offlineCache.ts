@@ -113,6 +113,36 @@ export function getCacheUsageBytes(): number {
 }
 
 /**
+ * Evict all expired or corrupt cache entries across domains.
+ * Returns the number of entries evicted.
+ */
+export function evictExpiredEntries(now = Date.now()): number {
+  if (!isBrowser()) return 0;
+  const toRemove: string[] = [];
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k?.startsWith(`${STORAGE_PREFIX}:`)) continue;
+    const parts = k.split(":");
+    const domain = parts[1] as CacheDomain | undefined;
+    const ttl = domain && domain in TTL_MS ? TTL_MS[domain] : TTL_MS.trades_list;
+    try {
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw) as { cachedAt?: number };
+      if (typeof parsed.cachedAt !== "number" || now - parsed.cachedAt > ttl * 2) {
+        toRemove.push(k);
+      }
+    } catch {
+      toRemove.push(k);
+    }
+  }
+
+  toRemove.forEach((k) => localStorage.removeItem(k));
+  return toRemove.length;
+}
+
+/**
  * Evict the single least-recently-written cache entry to free space.
  * Called when a write would exceed QUOTA_BYTES.
  */
@@ -149,7 +179,7 @@ function evictLRU(): void {
 
 /**
  * Write a value into the cache under domain + key.
- * Enforces quota by evicting LRU entries until enough space exists.
+ * Evicts expired entries first, then enforces quota by evicting LRU entries until enough space exists.
  */
 export function cacheWrite<T>(
   domain: CacheDomain,
@@ -157,6 +187,8 @@ export function cacheWrite<T>(
   data: T,
 ): void {
   if (!isBrowser()) return;
+
+  evictExpiredEntries();
 
   const entry: CacheEntry<T> = {
     data,
