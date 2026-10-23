@@ -48,14 +48,23 @@ export function intlLocale(locale: Locale): string {
   return locale === "pseudo" ? DEFAULT_LOCALE : locale;
 }
 
-const RTL_LOCALE_PREFIXES = ["ar", "he", "fa", "ur"];
+export type LocaleDirection = "ltr" | "rtl";
 
-/** Resolve text direction ("ltr" | "rtl") for a given locale. */
-export function localeDir(locale: Locale | string): "ltr" | "rtl" {
-  const normalized = String(locale).toLowerCase();
-  return RTL_LOCALE_PREFIXES.some(
-    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}-`),
-  )
-    ? "rtl"
-    : "ltr";
+/**
+ * Returns text direction ('ltr' or 'rtl') for a given locale.
+ * Standard Nigerian locales (en-NG, ha-NG, yo-NG, ig-NG) use Latin script (ltr).
+ * Right-to-left scripts (e.g. Arabic, Hebrew, or Ajami variants) return rtl.
+ */
+export function localeDirection(locale: Locale | string): LocaleDirection {
+  if (
+    locale.startsWith("ar") ||
+    locale.startsWith("he") ||
+    locale.startsWith("fa") ||
+    locale.startsWith("ur") ||
+    locale.includes("-Arab") ||
+    locale.includes("-Hebr")
+  ) {
+    return "rtl";
+  }
+  return "ltr";
 }

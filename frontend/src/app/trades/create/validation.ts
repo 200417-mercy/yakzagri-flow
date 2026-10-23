@@ -2,31 +2,59 @@ import { z } from "zod";
 import { StrKey } from "@stellar/stellar-sdk";
 import { t } from "@/lib/i18n";
 
-export function createStep1Schema() {
-  return z.object({
-    commodity: z.string().min(1, t("validation.selectCommodity")),
+export function isValidStellarAddress(val: string): boolean {
+  const trimmed = val.trim();
+  if (!trimmed) return false;
+  if (StrKey.isValidEd25519PublicKey(trimmed)) {
+    return true;
+  }
+  if (typeof StrKey.isValidContract === "function" && StrKey.isValidContract(trimmed)) {
+    return true;
+  }
+  return false;
+}
+
+export function isSelfEscrowAddress(buyerAddress?: string | null, sellerAddress?: string | null): boolean {
+  if (!buyerAddress || !sellerAddress) return false;
+  const buyer = buyerAddress.trim().toUpperCase();
+  const seller = sellerAddress.trim().toUpperCase();
+  return buyer !== "" && buyer === seller;
+}
+
+export const step1Schema = z
+  .object({
+    commodity: z.string().min(1, "Select a commodity"),
     quantity: z.string().refine(
       (val) => {
         const n = parseFloat(val);
         return !isNaN(n) && n > 0;
       },
-      { message: t("validation.quantityPositive") }
+      { message: "Quantity must be greater than 0" }
     ),
-    unit: z.string().min(1, t("validation.selectUnit")),
+    unit: z.string().min(1, "Select a unit"),
     pricePerUnit: z.string().refine(
       (val) => {
         const n = parseFloat(val);
         return !isNaN(n) && n > 0;
       },
-      { message: t("validation.pricePositive") }
+      { message: "Price must be greater than 0" }
     ),
     currency: z.string().min(1),
+    buyerAddress: z.string().optional(),
     sellerAddress: z.string().refine(
-      (val) => val !== "" && StrKey.isValidEd25519PublicKey(val.trim()),
-      { message: t("validation.invalidStellarKey") }
+      (val) => isValidStellarAddress(val),
+      { message: "Invalid Stellar public key" }
     ),
+  })
+  .superRefine((data, ctx) => {
+    if (isSelfEscrowAddress(data.buyerAddress, data.sellerAddress)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Buyer and seller Stellar addresses cannot be identical",
+        path: ["sellerAddress"],
+      });
+    }
   });
-}
 
 export const step1Schema = createStep1Schema();
 
@@ -46,24 +74,42 @@ export function createStep2Schema() {
 
 export const step2Schema = createStep2Schema();
 
-export const step3Schema = z.object({
-  commodity: z.string().min(1),
-  quantity: z.string().min(1),
-  unit: z.string().min(1),
-  pricePerUnit: z.string().min(1),
-  currency: z.string().min(1),
-  sellerAddress: z.string().min(1),
-  buyerRatio: z.number(),
-  sellerRatio: z.number(),
-  deliveryDays: z.string().min(1),
-});
+export const step3Schema = z
+  .object({
+    commodity: z.string().min(1),
+    quantity: z.string().min(1),
+    unit: z.string().min(1),
+    pricePerUnit: z.string().min(1),
+    currency: z.string().min(1),
+    buyerAddress: z.string().optional(),
+    sellerAddress: z.string().refine((val) => isValidStellarAddress(val), {
+      message: "Invalid Stellar public key",
+    }),
+    buyerRatio: z.number(),
+    sellerRatio: z.number(),
+    deliveryDays: z.string().min(1),
+  })
+  .superRefine((data, ctx) => {
+    if (isSelfEscrowAddress(data.buyerAddress, data.sellerAddress)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Buyer and seller Stellar addresses cannot be identical",
+        path: ["sellerAddress"],
+      });
+    }
+  });
 
 export type Step1Data = z.infer<typeof step1Schema>;
 export type Step2Data = z.infer<typeof step2Schema>;
 export type Step3Data = z.infer<typeof step3Schema>;
 
-export function validateStep1(data: Record<string, unknown>): Record<string, string> {
-  const result = createStep1Schema().safeParse(data);
+export function validateStep1(
+  data: Record<string, unknown>,
+  buyerAddress?: string | null
+): Record<string, string> {
+  const payload =
+    buyerAddress && !data.buyerAddress ? { ...data, buyerAddress } : data;
+  const result = step1Schema.safeParse(payload);
   if (result.success) return {};
   const errors: Record<string, string> = {};
   for (const issue of result.error.issues) {
