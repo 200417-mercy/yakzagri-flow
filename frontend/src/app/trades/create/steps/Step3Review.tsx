@@ -51,6 +51,12 @@ export function estimateSorobanSimulation(rawAmount: number): SorobanSimulationB
 }
 
 type Row = { label: string; value: string };
+type CompletedTrade = { tradeId: string; transactionHash: string };
+type Step3ReviewProps = {
+  onCreated?: (trade: CompletedTrade) => void;
+  completedTrade?: CompletedTrade;
+  onStartNewTrade?: () => void;
+};
 
 function ReviewRow({ label, value }: Row) {
   return (
@@ -61,7 +67,7 @@ function ReviewRow({ label, value }: Row) {
   );
 }
 
-export function Step3Review() {
+export function Step3Review({ onCreated, completedTrade, onStartNewTrade }: Step3ReviewProps) {
   const router = useRouter();
   const { data, setStep } = useTrade();
   const { token, address, isAuthenticated, isWalletConnected, connectWallet, authenticate } = useAuth();
@@ -143,55 +149,51 @@ export function Step3Review() {
       return;
     }
 
-    const requestPayload = {
-      sellerAddress: parsed.data.sellerAddress,
-      amountUsdc: parsed.data.amountUsdc,
-      buyerLossBps,
-      sellerLossBps,
-    };
-
-    const correlationId = generateCorrelationId();
-    const idempotencyKey = getOrCreateIdempotencyKey(address, dedupKey);
-    registerAction(dedupKey, correlationId, idempotencyKey);
-
-    // Offline queue: queue idempotent action locally while offline (draft trades survive refresh)
-    if (isOffline) {
-      enqueue({
-        type: "create-trade",
-        endpoint: "/trades",
-        method: "POST",
-        body: requestPayload,
-        idempotencyKey,
-        correlationId,
-      });
-      // Pending-state UX showing what will send
-      addToastWithCorrelation({
-        type: "info",
-        title: "Queued offline",
-        message: `Draft trade (${data.commodity} ${amountUsdc} cNGN) will send when reconnected.`,
-        correlationId,
-        duration: 6000,
-      });
-      // Keep draft in localStorage (TradeContext) — survives refresh/restart via TradeContext persistence
-      setError(null);
-      return;
-    }
-
-    submittingRef.current = true;
-    setLoading(true);
-    setError(null);
-    // Unified toast contract: pending w/ correlation ID
-    addToastWithCorrelation({ type: "info", title: "In progress", message: "Locking funds…", correlationId, duration: 0 });
-
     try {
-      const submission = await submitTradeCreation(token, requestPayload, {
-        idempotencyKey,
-        correlationId,
-      });
+      // Action de-duplication window preventing double-submit (rapid triple-click yields single intent)
+      const dedupKey = `create-trade:${data.sellerAddress}:${amountUsdc}:${buyerLossBps}`;
+      const dedup = shouldDedup(dedupKey);
+      if (dedup.dedup) return;
+      if (!isAuthenticated || !token) {
+        setError("Please connect and authenticate your wallet first.");
+        return;
+      }
+
+      if (!isFormValid) {
+        setError("Please complete all required fields with valid values before submitting.");
+        return;
+      }
+
+      // Validate against the shared domain schema — same rules the backend
+      // enforces — so we never fire a request the server will reject with a 400.
+      const payload = {
+        sellerAddress: data.sellerAddress.trim(),
+        amountUsdc,
+        buyerLossBps,
+        sellerLossBps,
+      };
+      const parsed = createTradeInputSchema.safeParse(payload);
+      if (!parsed.success) {
+        const errs = fieldErrors(parsed.error);
+        setError(errs._form ?? Object.values(errs)[0] ?? "Trade details are invalid.");
+        return;
+      }
+
+      const requestPayload = {
+        sellerAddress: parsed.data.sellerAddress,
+        amountUsdc: parsed.data.amountUsdc,
+        buyerLossBps,
+        sellerLossBps,
+      };
+
+      const correlationId = generateCorrelationId();
+      const idempotencyKey = getOrCreateIdempotencyKey(address, dedupKey);
+      registerAction(dedupKey, correlationId, idempotencyKey);
 
       clearIdempotencyKey(address, dedupKey);
       setTradeId(submission.tradeId);
       setTxHash(submission.transactionHash);
+      onCreated?.({ tradeId: submission.tradeId, transactionHash: submission.transactionHash });
       updateToast(correlationId, { type: "success", title: "Success", message: "Trade created — funds locked.", duration: 5000 });
       // Clear draft on success
       try { localStorage.removeItem("amana:draft-trade"); } catch {}
@@ -205,17 +207,62 @@ export function Step3Review() {
           idempotencyKey,
           correlationId,
         });
-        router.push('/trades/queue');
+        // Pending-state UX showing what will send
+        addToastWithCorrelation({
+          type: "info",
+          title: "Queued offline",
+          message: `Draft trade (${data.commodity} ${amountUsdc} cNGN) will send when reconnected.`,
+          correlationId,
+          duration: 6000,
+        });
+        // Keep draft in localStorage (TradeContext) — survives refresh/restart via TradeContext persistence
+        setError(null);
         return;
       }
-      setError(err instanceof Error ? err.message : 'Failed to submit trade');
+
+      setLoading(true);
+      setError(null);
+      // Unified toast contract: pending w/ correlation ID
+      addToastWithCorrelation({ type: "info", title: "In progress", message: "Locking funds…", correlationId, duration: 0 });
+
+      try {
+        const submission = await submitTradeCreation(token, requestPayload, {
+          idempotencyKey,
+          correlationId,
+        });
+
+        clearIdempotencyKey(address, dedupKey);
+        setTradeId(submission.tradeId);
+        setTxHash(submission.transactionHash);
+        updateToast(correlationId, { type: "success", title: "Success", message: "Trade created — funds locked.", duration: 5000 });
+        // Clear draft on success
+        try { localStorage.removeItem("amana:draft-trade"); } catch {}
+      } catch (err) {
+        if (!navigator.onLine) {
+          enqueue({
+            type: "create-trade",
+            endpoint: "/trades",
+            method: "POST",
+            body: requestPayload,
+            idempotencyKey,
+            correlationId,
+          });
+          router.push('/trades/queue');
+          return;
+        }
+        setError(err instanceof Error ? err.message : 'Failed to submit trade');
+      } finally {
+        setLoading(false);
+      }
     } finally {
       submittingRef.current = false;
-      setLoading(false);
     }
   };
 
-  if (tradeId && txHash) {
+  const displayedTradeId = completedTrade?.tradeId ?? tradeId;
+  const displayedTxHash = completedTrade?.transactionHash ?? txHash;
+
+  if (displayedTradeId && displayedTxHash) {
     return (
     <div className="step-review">
       <h2>{translateCopy("ui.review_trade_56119c6")}</h2>
@@ -227,14 +274,14 @@ export function Step3Review() {
         </div>
         <div className="w-full rounded-lg bg-bg-elevated border border-border-default px-4 py-3 text-left">
           <p className="text-xs text-text-muted mb-1">{translateCopy("ui.trade_id_153d513")}</p>
-          <p className="text-emerald font-mono text-sm break-all">{tradeId}</p>
+          <p className="text-emerald font-mono text-sm break-all">{displayedTradeId}</p>
         </div>
         <div className="w-full rounded-lg bg-bg-elevated border border-border-default px-4 py-3 text-left">
           <p className="text-xs text-text-muted mb-1">{translateCopy("ui.transaction_hash_7534364")}</p>
-          <p className="text-emerald font-mono text-sm break-all">{txHash}</p>
+          <p className="text-emerald font-mono text-sm break-all">{displayedTxHash}</p>
         </div>
         <button
-          onClick={() => router.push(`/trades/${tradeId}`)}
+          onClick={() => router.push(`/trades/${displayedTradeId}`)}
           className="h-12 w-full flex items-center justify-center rounded-full bg-gradient-gold-cta text-text-inverse font-semibold"
         >
           {translateCopy("ui.view_trade_details_c527f5b")}
@@ -245,6 +292,15 @@ export function Step3Review() {
         >
           {translateCopy("ui.view_all_trades_20304ec")}
         </Link>
+        {onStartNewTrade && (
+          <button
+            type="button"
+            onClick={onStartNewTrade}
+            className="text-sm text-text-secondary hover:text-text-primary"
+          >
+            {translateCopy("ui.start_new_trade")}
+          </button>
+        )}
       </div>
       </div>
     );
