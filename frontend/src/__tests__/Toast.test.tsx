@@ -93,6 +93,36 @@ describe("Toast component", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalledWith("1"));
   });
 
+  it("pauses dismissal on hover and resumes with the remaining duration", () => {
+    render(<Toast id="1" type="warning" message="Watch out" duration={5000} onClose={onClose} />);
+    const toast = screen.getByText("Watch out").closest('[role="group"]')!;
+
+    act(() => jest.advanceTimersByTime(2000));
+    fireEvent.mouseEnter(toast);
+    act(() => jest.advanceTimersByTime(5000));
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.mouseLeave(toast);
+    act(() => jest.advanceTimersByTime(2999));
+    expect(onClose).not.toHaveBeenCalled();
+    act(() => jest.advanceTimersByTime(301));
+    expect(onClose).toHaveBeenCalledWith("1");
+  });
+
+  it("pauses dismissal while focus stays inside the toast", () => {
+    render(<Toast id="1" type="error" message="Please review this error" duration={5000} onClose={onClose} />);
+    const closeButton = screen.getByRole("button", { name: /close/i });
+
+    act(() => jest.advanceTimersByTime(2000));
+    fireEvent.focus(closeButton);
+    act(() => jest.advanceTimersByTime(5000));
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.blur(closeButton, { relatedTarget: document.body });
+    act(() => jest.advanceTimersByTime(3300));
+    expect(onClose).toHaveBeenCalledWith("1");
+  });
+
   it.each([
     ["success", "success"],
     ["error", "error"],

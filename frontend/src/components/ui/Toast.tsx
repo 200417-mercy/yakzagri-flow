@@ -24,6 +24,11 @@ export function Toast({
   const remainingRef = useRef(duration);
 
   const handleClose = useCallback(() => {
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
+    timerStartedAtRef.current = null;
     setIsClosing(true);
     // Wait for the slide-out/fade-out animation to finish before actually removing it
     setTimeout(() => {
@@ -90,6 +95,24 @@ export function Toast({
 
   return (
     <div
+      onMouseEnter={() => {
+        isHoveredRef.current = true;
+        pauseTimer();
+      }}
+      onMouseLeave={() => {
+        isHoveredRef.current = false;
+        if (!isFocusedRef.current) resumeTimer();
+      }}
+      onFocusCapture={() => {
+        isFocusedRef.current = true;
+        pauseTimer();
+      }}
+      onBlurCapture={(event) => {
+        const nextTarget = event.relatedTarget;
+        if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
+        isFocusedRef.current = false;
+        if (!isHoveredRef.current) resumeTimer();
+      }}
       className={clsx(
         baseClasses,
         animationClasses,
