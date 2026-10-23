@@ -162,11 +162,37 @@ describe('Step3Review', () => {
             expect(quantityRow).toHaveTextContent('kg');
         });
 
+        it('should display structured quantity and unit breakdown', () => {
+            renderWithProvider({
+                commodity: 'Maize',
+                quantity: '100',
+                unit: 'bags',
+                pricePerUnit: '10',
+            });
+
+            const quantityRow = screen.getByText('Quantity').closest('div');
+            expect(quantityRow).toHaveTextContent('100');
+            expect(quantityRow).toHaveTextContent('bags');
+        });
+
         it('should display price per unit with currency', () => {
             renderWithProvider();
 
             const priceRow = screen.getByText('Price per unit').closest('div');
             expect(priceRow).toHaveTextContent('NGN');
+        });
+
+        it('should display automatically computed unit price', () => {
+            renderWithProvider({
+                commodity: 'Maize',
+                quantity: '100',
+                unit: 'bags',
+                pricePerUnit: '10',
+            });
+
+            const priceRow = screen.getByText('Price per unit').closest('div');
+            expect(priceRow).toHaveTextContent('NGN');
+            expect(priceRow).toHaveTextContent('10');
         });
 
         it('should display total value', () => {
@@ -533,6 +559,26 @@ describe('Step3Review', () => {
             const quantityRow = screen.getByText('Quantity').closest('div');
             const valueSpan = quantityRow?.querySelector('.text-text-primary');
             expect(valueSpan?.textContent).toBe(' kg');
+        });
+
+        it('should handle quantity with unit but no amount', () => {
+            renderWithProvider({ unit: 'crates' });
+
+            const quantityRow = screen.getByText('Quantity').closest('div');
+            expect(quantityRow).toHaveTextContent('crates');
+        });
+
+        it('should handle metric ton unit', () => {
+            renderWithProvider({
+                commodity: 'Sorghum',
+                quantity: '5',
+                unit: 'metric tons',
+                pricePerUnit: '250',
+            });
+
+            const quantityRow = screen.getByText('Quantity').closest('div');
+            expect(quantityRow).toHaveTextContent('5');
+            expect(quantityRow).toHaveTextContent('metric tons');
         });
 
         it('should handle empty price', () => {

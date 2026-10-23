@@ -86,7 +86,7 @@ export const step1Schema = z
       },
       { message: "Quantity must be greater than 0" }
     ),
-    unit: z.string().min(1, "Select a unit"),
+    unit: z.enum(COMMODITY_UNITS, { message: "Select a valid unit" }),
     pricePerUnit: z.string().refine(
       (val) => {
         const n = parseFloat(val);
@@ -149,7 +149,7 @@ export const step3Schema = z
   .object({
     commodity: z.string().min(1),
     quantity: z.string().min(1),
-    unit: z.string().min(1),
+    unit: z.enum(COMMODITY_UNITS, { message: "Select a valid unit" }),
     pricePerUnit: z.string().min(1),
     currency: z.string().min(1),
     buyerAddress: z.string().optional(),

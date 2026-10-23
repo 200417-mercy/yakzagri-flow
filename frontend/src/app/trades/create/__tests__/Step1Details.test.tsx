@@ -108,6 +108,7 @@ describe('Step1Details', () => {
             expect(options).toContain('tonnes');
             expect(options).toContain('bags (50kg)');
             expect(options).toContain('bags (100kg)');
+            expect(options).toContain('crates');
         });
 
         it('should update unit when selected', async () => {
@@ -139,6 +140,45 @@ describe('Step1Details', () => {
             await user.type(input, '450');
 
             expect(input).toHaveValue(450);
+        });
+    });
+
+    describe('unit price display', () => {
+        it('should display dash when quantity or price is empty', () => {
+            renderWithProvider();
+
+            const unitPriceElement = screen.getByText(/unit price/i).nextElementSibling;
+            expect(unitPriceElement).toHaveTextContent('—');
+        });
+
+        it('should display computed unit price when quantity and price are filled', async () => {
+            const user = userEvent.setup();
+            renderWithProvider();
+
+            const quantityInput = screen.getByLabelText(/quantity/i);
+            const priceInput = screen.getByLabelText(/price per unit/i);
+
+            await user.type(quantityInput, '500');
+            await user.type(priceInput, '450');
+
+            const unitPriceElement = screen.getByText(/unit price/i).nextElementSibling;
+            expect(unitPriceElement).toHaveTextContent('₦0.90');
+        });
+
+        it('should update unit price when unit changes', async () => {
+            const user = userEvent.setup();
+            renderWithProvider();
+
+            const quantityInput = screen.getByLabelText(/quantity/i);
+            const priceInput = screen.getByLabelText(/price per unit/i);
+            const unitSelect = screen.getByLabelText(/^unit$/i);
+
+            await user.type(quantityInput, '2');
+            await user.type(priceInput, '100');
+            await user.selectOptions(unitSelect, 'bags (50kg)');
+
+            const unitPriceElement = screen.getByText(/unit price/i).nextElementSibling;
+            expect(unitPriceElement).toHaveTextContent('₦1.00');
         });
     });
 

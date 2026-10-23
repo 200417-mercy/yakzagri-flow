@@ -43,21 +43,29 @@ const TradeContext = createContext<TradeContextType>({} as TradeContextType);
 
 const STORAGE_KEY = "amana:draft-trade";
 
-export function TradeProvider({ children }: { children: React.ReactNode }) {
+export function TradeProvider({
+  children,
+  initialData,
+}: {
+  children: React.ReactNode;
+  initialData?: Partial<TradeData>;
+}) {
   const [step, setStep] = useState(1);
   const [resetVersion, setResetVersion] = useState(0);
   const persistedResetVersion = useRef(0);
   const [data, setData] = useState<TradeData>(() => {
+    let base: TradeData = defaults;
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
-          return { ...defaults, ...parsed.data } as TradeData;
+          base = { ...defaults, ...parsed.data } as TradeData;
         }
       } catch {}
     }
-    return defaults;
+    // Deep-linked initial data takes precedence on first mount
+    return initialData ? { ...base, ...initialData } : base;
   });
 
   // Persist draft locally — survives refresh/restart, replays via offline queue

@@ -89,6 +89,11 @@ export default function TradeDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [actionProgress, setActionProgress] = useState<string | null>(null);
+  const [confirmedTx, setConfirmedTx] = useState<{
+    hash: string;
+    ledger: number | null;
+  } | null>(null);
   const [disputeOpen, setDisputeOpen] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
   const [disputeCategory, setDisputeCategory] = useState<DisputeCategory>("delivery");
@@ -339,9 +344,35 @@ export default function TradeDetailPage() {
               {actionError}
             </div>
           )}
+          {actionProgress && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="rounded-lg border border-border-default bg-bg-card px-4 py-3 text-sm text-text-secondary"
+            >
+              {actionProgress}
+            </div>
+          )}
           {actionSuccess && (
             <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
-              {actionSuccess}
+              <p>{actionSuccess}</p>
+              {confirmedTx && (
+                <p className="mt-1 text-xs">
+                  <a
+                    href={getTxExplorerUrl(confirmedTx.hash)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-emerald-300"
+                  >
+                    {confirmedTx.hash}
+                  </a>
+                  {confirmedTx.ledger !== null && (
+                    <span className="ml-2 text-text-muted">
+                      Ledger #{confirmedTx.ledger}
+                    </span>
+                  )}
+                </p>
+              )}
             </div>
           )}
 
