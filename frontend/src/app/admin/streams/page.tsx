@@ -78,7 +78,13 @@ export default function AdminStreamsPage() {
 
   if (loading) {
     return (
-      <div className="px-6 py-8 max-w-6xl mx-auto" data-testid="admin-streams-page">
+      <div
+        className="px-6 py-8 max-w-6xl mx-auto"
+        data-testid="admin-streams-page"
+        role="status"
+        aria-busy="true"
+        aria-label="Loading stream administration table"
+      >
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-3xl font-bold text-text-primary">{translateCopy("ui.stream_admin_eeae618")}</h2>
         </div>
